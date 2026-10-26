@@ -9,41 +9,6 @@
 <link rel="stylesheet" href="css/base.css">
 </head>
 <body>
-<script type="module">
-import { exigirSessao } from './js/auth.js';
-import { montarLayout } from './js/layout.js';
-import { sb } from './js/supabase.js';
-
-const perfil = await exigirSessao({ adm: true });
-const main = montarLayout(perfil, 'inicio');
-
-async function contar(tabela, filtro) {
-  let q = sb.from(tabela).select('*', { count: 'exact', head: true });
-  if (filtro) q = filtro(q);
-  const { count, error } = await q;
-  return error ? '—' : count;
-}
-const [profs, periodos, matrizes, componentes] = await Promise.all([
-  contar('professores', (q) => q.eq('ativo', true)),
-  contar('periodos'),
-  contar('matrizes'),
-  contar('componentes', (q) => q.eq('ativo', true)),
-]);
-
-main.innerHTML = `
-  <header class="cabecalho">
-    <div>
-      <h1>Dashboard</h1>
-      <p class="sub">Olá, ${perfil.nome.split(' ')[0]}. O painel completo chega junto com as telas de planejamento.</p>
-    </div>
-  </header>
-  <section class="kpis">
-    <div class="card kpi"><span class="kl">Professores ativos</span><span class="kv num">${profs}</span></div>
-    <div class="card kpi"><span class="kl">Períodos letivos</span><span class="kv num">${periodos}</span></div>
-    <div class="card kpi"><span class="kl">Matrizes</span><span class="kv num">${matrizes}</span></div>
-    <div class="card kpi"><span class="kl">Componentes</span><span class="kv num">${componentes}</span></div>
-  </section>
-  <div class="alerta alerta-aviso">Blocos 1 e 2 entregues: acesso, Minhas aulas e cadastros (configurações, matrizes, turmas, professores e usuários). As telas em cinza no menu ainda estão em construção.</div>`;
-</script>
+<script type="module" src="js/inicio.js"></script>
 </body>
 </html>
