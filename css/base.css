@@ -205,3 +205,17 @@ td { padding: 11px 14px; border-bottom: 1px solid var(--linha); vertical-align: 
 .lista-nav button span { display: block; font-size: 12px; color: var(--texto-suave); margin-top: 2px; }
 .lista-nav button[aria-current="true"] { background: var(--vermelho-fundo); color: var(--vermelho-escuro); font-weight: 600; }
 tr.inativo td { color: var(--texto-fraco); }
+
+/* ---------- Grade da graduação ---------- */
+.grade { display: grid; min-width: 640px; }
+.grade-dia { display: flex; align-items: center; justify-content: center; height: 38px; font-size: 13px; font-weight: 700; color: #2B2B30; border-bottom: 1px solid #E3E3E7; }
+.slot-vazio { position: absolute; left: 3px; right: 3px; border: 1px dashed #D4D4DA; border-radius: 10px; background: #fff; color: var(--texto-fraco); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.slot-vazio:hover { border-color: var(--vermelho); color: var(--vermelho-escuro); background: var(--vermelho-fundo); }
+.bloco { position: absolute; border: 1px solid; border-radius: 10px; padding: 6px 9px; display: flex; flex-direction: column; gap: 1px; overflow: hidden; text-align: left; font: inherit; color: var(--texto); cursor: pointer; z-index: 1; }
+.bloco:hover { filter: brightness(0.97); }
+.bloco .bn { font-size: 12.5px; font-weight: 700; line-height: 1.25; }
+.bloco .bp { font-size: 12px; font-weight: 500; }
+.bloco .bd { font-size: 11.5px; color: var(--texto-suave); }
+.bloco-sel { outline: 2px dashed var(--vermelho); outline-offset: 1px; }
+.req.falha { color: var(--erro-texto); font-weight: 600; }
+.req.falha::before { background: #C2410C; }

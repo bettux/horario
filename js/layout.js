@@ -35,7 +35,7 @@ const MENU_PROF = [
 ];
 
 // Telas já entregues (as demais aparecem como "em breve")
-const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios']);
+const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'grade']);
 
 function linkHtml(item, ativo, classe = '') {
   const pronto = PRONTAS.has(item.id);

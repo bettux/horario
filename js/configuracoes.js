@@ -40,9 +40,9 @@ async function abaPeriodos() {
     <div class="duas-colunas">
       <section class="card larga tabela-box">
         <table>
-          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Semanas</th><th>Situação</th><th></th></tr></thead>
+          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Semanas letivas</th><th>Situação</th><th></th></tr></thead>
           <tbody>${periodos.length ? periodos.map((p) => {
-            const sem = Math.ceil((parseData(p.fim) - parseData(p.inicio) + 86400000) / (7 * 86400000));
+            const sem = p.semanas_letivas;
             const sit = hoje < p.inicio ? '<span class="chip chip-aviso">Futuro</span>' : hoje > p.fim ? '<span class="chip chip-neu">Encerrado</span>' : '<span class="chip chip-ok">Em andamento</span>';
             return `<tr><td><strong>${periodoRotulo(p)}</strong></td><td class="num">${ddmmaaaa(parseData(p.inicio))}</td><td class="num">${ddmmaaaa(parseData(p.fim))}</td>
               <td class="num">${sem}</td><td>${sit}</td><td><div class="acoes"><button class="btn btn-s" data-editar="${p.id}">Editar</button></div></td></tr>`;
@@ -56,8 +56,9 @@ async function abaPeriodos() {
           <div class="campo"><label for="sem">Semestre</label><select id="sem"><option>1</option><option>2</option></select></div>
           <div class="campo"><label for="ini">Início</label><input id="ini" type="date" required></div>
           <div class="campo"><label for="fim">Fim</label><input id="fim" type="date" required></div>
+          <div class="campo"><label for="semletivas">Semanas letivas</label><input id="semletivas" type="number" min="1" max="30" value="20" required></div>
         </div>
-        <span class="muted" style="font-size:12.5px">Não aceita período repetido nem início depois do fim. A disponibilidade dos professores começa vazia em cada período.</span>
+        <span class="muted" style="font-size:12.5px">Semanas letivas: usadas no contador de aulas da graduação (aulas por semana × semanas). Não aceita período repetido nem início depois do fim. A disponibilidade dos professores começa vazia em cada período.</span>
         <div id="msg" class="oculto" role="alert"></div>
         <button class="btn btn-p" type="submit">Criar período</button>
       </form>
@@ -69,7 +70,7 @@ async function abaPeriodos() {
     try {
       if (!form.ini.value || !form.fim.value) throw new Error('Informe início e fim.');
       if (form.ini.value > form.fim.value) throw new Error('O início precisa ser antes do fim.');
-      await q(sb.from('periodos').insert({ ano: +form.ano.value, semestre: +form.sem.value, inicio: form.ini.value, fim: form.fim.value }));
+      await q(sb.from('periodos').insert({ ano: +form.ano.value, semestre: +form.sem.value, inicio: form.ini.value, fim: form.fim.value, semanas_letivas: +form.semletivas.value || 20 }));
       avisar('Período criado.');
       abrir('periodos');
     } catch (e) { mostrarErro(form.querySelector('#msg'), e); }
@@ -81,12 +82,13 @@ async function abaPeriodos() {
       titulo: `Editar período ${periodoRotulo(p)}`,
       corpo: `<div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
         <div class="campo"><label for="e-ini">Início</label><input id="e-ini" type="date" value="${p.inicio}" required></div>
-        <div class="campo"><label for="e-fim">Fim</label><input id="e-fim" type="date" value="${p.fim}" required></div></div>
+        <div class="campo"><label for="e-fim">Fim</label><input id="e-fim" type="date" value="${p.fim}" required></div>
+        <div class="campo"><label for="e-sem">Semanas letivas</label><input id="e-sem" type="number" min="1" max="30" value="${p.semanas_letivas}" required></div></div>
         <span class="muted" style="font-size:12.5px">Encontros de pós que ficarem fora das novas datas aparecem na Auditoria.</span>`,
       aoConfirmar: async (dlg) => {
         const ini = dlg.querySelector('#e-ini').value, fim = dlg.querySelector('#e-fim').value;
         if (ini > fim) throw new Error('O início precisa ser antes do fim.');
-        await q(sb.from('periodos').update({ inicio: ini, fim }).eq('id', p.id));
+        await q(sb.from('periodos').update({ inicio: ini, fim, semanas_letivas: +dlg.querySelector('#e-sem').value || 20 }).eq('id', p.id));
         avisar('Período atualizado.'); abrir('periodos');
       },
     });
