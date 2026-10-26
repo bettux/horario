@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · Alocação de aula Vila Mariana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+</head>
+<body>
+<div class="acesso">
+  <section class="acesso-marca">
+    <p class="eyebrow">Planejamento docente</p>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <h1>Sistema de alocação de aula Graduação e Pós Graduação - Vila Mariana</h1>
+      <p>Grade da graduação, encontros da pós, disponibilidade e carga docente em um só lugar.</p>
+    </div>
+    <p style="font-size:13px">Acesso restrito a professores e coordenação.</p>
+  </section>
+  <section class="acesso-form">
+    <form class="card acesso-card" id="form" novalidate>
+      <div>
+        <h2>Entrar</h2>
+        <p class="muted" style="margin:6px 0 0">Use seu NIF e sua senha.</p>
+      </div>
+      <div class="campo">
+        <label for="nif">NIF</label>
+        <input id="nif" name="nif" inputmode="numeric" autocomplete="username" placeholder="Somente números" required>
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      </div>
+      <div id="msg" class="oculto" role="alert"></div>
+      <button class="btn btn-p btn-g" type="submit" id="entrar">Entrar</button>
+      <p class="muted" style="margin:0;font-size:13px;line-height:1.5">Esqueceu a senha? Peça ao administrador para redefinir. Ela volta para a senha provisória e deve ser trocada no próximo acesso.</p>
+    </form>
+  </section>
+</div>
+<script type="module">
+import { sb } from './js/supabase.js';
+import { entrar, meuPerfil, destino } from './js/auth.js';
+import { mostrarAlerta, esconder } from './js/util.js';
+
+const form = document.getElementById('form');
+const msg = document.getElementById('msg');
+const botao = document.getElementById('entrar');
+
+// Já está logado? Vai direto para a tela certa.
+const { data } = await sb.auth.getSession();
+if (data.session) {
+  try { const p = await meuPerfil(); if (p && p.ativo) location.replace(destino(p)); } catch { /* segue no login */ }
+}
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  esconder(msg);
+  botao.disabled = true; botao.textContent = 'Entrando…';
+  try {
+    const perfil = await entrar(form.nif.value, form.senha.value);
+    location.replace(destino(perfil));
+  } catch (e) {
+    mostrarAlerta(msg, 'erro', e.message);
+    botao.disabled = false; botao.textContent = 'Entrar';
+  }
+});
+</script>
+</body>
+</html>

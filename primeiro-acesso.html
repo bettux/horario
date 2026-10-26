@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Primeiro acesso · Alocação de aula Vila Mariana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+</head>
+<body>
+<div class="acesso">
+  <section class="acesso-marca">
+    <p class="eyebrow">Primeiro acesso</p>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <h1>Defina a sua senha antes de continuar</h1>
+      <p>Você entrou com a senha provisória. Ela vale por 7 dias e só serve para este primeiro acesso. Depois de salvar a nova senha, o sistema abre a tela do seu perfil.</p>
+    </div>
+    <p style="font-size:13px">Sistema de alocação de aula Graduação e Pós Graduação - Vila Mariana</p>
+  </section>
+  <section class="acesso-form">
+    <form class="card acesso-card" id="form" novalidate>
+      <div>
+        <h2>Nova senha</h2>
+        <p class="muted" style="margin:6px 0 0" id="conta">Carregando…</p>
+      </div>
+      <div class="campo">
+        <label for="nova">Nova senha</label>
+        <input id="nova" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="campo">
+        <label for="conf">Confirme a nova senha</label>
+        <input id="conf" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="requisitos" aria-live="polite">
+        <div class="req" data-r="tam">Pelo menos 8 caracteres</div>
+        <div class="req" data-r="mix">Letras e números</div>
+        <div class="req" data-r="nif">Não contém o seu NIF</div>
+        <div class="req" data-r="igual">As duas senhas são iguais</div>
+      </div>
+      <div id="msg" class="oculto" role="alert"></div>
+      <button class="btn btn-p btn-g" type="submit" id="salvar" disabled>Salvar e continuar</button>
+      <button class="btn" type="button" id="sair">Sair</button>
+    </form>
+  </section>
+</div>
+<script type="module">
+import { exigirSessao, trocarSenha, meuPerfil, destino, sair } from './js/auth.js';
+import { mostrarAlerta, esconder, esc } from './js/util.js';
+
+const perfil = await exigirSessao({ permitirTroca: true });
+if (!perfil.troca_senha_pendente) location.replace(destino(perfil));
+
+const form = document.getElementById('form');
+const msg = document.getElementById('msg');
+const salvar = document.getElementById('salvar');
+document.getElementById('conta').innerHTML = `${esc(perfil.nome)} · NIF ${esc(perfil.nif)}`;
+document.getElementById('sair').addEventListener('click', sair);
+
+const expirada = perfil.provisoria_expira_em && new Date(perfil.provisoria_expira_em) < new Date();
+if (expirada) {
+  mostrarAlerta(msg, 'erro', 'Sua senha provisória expirou. Peça ao administrador uma nova senha provisória.');
+  form.querySelectorAll('input').forEach((i) => (i.disabled = true));
+}
+
+function regras() {
+  const n = form.nova.value, c = form.conf.value;
+  const r = {
+    tam: n.length >= 8,
+    mix: /[A-Za-z]/.test(n) && /[0-9]/.test(n),
+    nif: n.length > 0 && !n.includes(perfil.nif),
+    igual: n.length > 0 && n === c,
+  };
+  for (const [k, ok] of Object.entries(r)) form.querySelector(`[data-r="${k}"]`).classList.toggle('ok', ok);
+  return Object.values(r).every(Boolean);
+}
+form.addEventListener('input', () => { salvar.disabled = expirada || !regras(); });
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if (!regras() || expirada) return;
+  esconder(msg);
+  salvar.disabled = true; salvar.textContent = 'Salvando…';
+  try {
+    await trocarSenha(form.nova.value);
+    const p = await meuPerfil();
+    location.replace(destino(p));
+  } catch (e) {
+    mostrarAlerta(msg, 'erro', e.message);
+    salvar.disabled = false; salvar.textContent = 'Salvar e continuar';
+  }
+});
+</script>
+</body>
+</html>
