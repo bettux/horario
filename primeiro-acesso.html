@@ -82,7 +82,7 @@ form.addEventListener('submit', async (ev) => {
   esconder(msg);
   salvar.disabled = true; salvar.textContent = 'Salvando…';
   try {
-    await trocarSenha(form.nova.value);
+    await trocarSenha(form.nova.value, perfil.nif);
     const p = await meuPerfil();
     location.replace(destino(p));
   } catch (e) {

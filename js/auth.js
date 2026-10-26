@@ -56,8 +56,13 @@ export async function contas(acao, dados = {}) {
   return data;
 }
 
-export async function trocarSenha(nova) {
+export async function trocarSenha(nova, nif) {
   await contas('trocar_senha', { nova_senha: nova });
-  // pega um token novo, já sem a marcação de troca pendente
-  await sb.auth.refreshSession();
+  // A troca de senha encerra a sessão antiga no servidor.
+  // Entra de novo com a senha nova para obter uma sessão limpa (sem troca pendente).
+  const { error } = await sb.auth.signInWithPassword({ email: emailDoNif(nif), password: nova });
+  if (error) {
+    await sb.auth.signOut();
+    throw new Error('Senha alterada. Entre novamente com a sua nova senha.');
+  }
 }
