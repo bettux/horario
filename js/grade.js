@@ -7,7 +7,7 @@ const { main } = await iniciarPagina('grade');
 main.innerHTML = `
   <header class="cabecalho">
     <div><h1>Grade da graduação</h1>
-    <p class="sub">Clique num horário vazio para adicionar uma aula. Nada é gravado até você salvar.</p></div>
+    <p class="sub">Clique num + para adicionar uma aula, ou numa aula para editar. Ao salvar, o sistema confere também a carga de 40 aulas e a pós de cada professor; nada é gravado até você salvar.</p></div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
       <span class="chip chip-red oculto" id="sujo"></span>
       <button class="btn" id="descartar" disabled>Descartar</button>
@@ -202,45 +202,64 @@ function linhasDoDia(tipo) {
 }
 function topoDe(tipo, numero) { return linhasDoDia(tipo).linhas.find((l) => l.tipo === 'slot' && l.h.numero === numero)?.y ?? 0; }
 
-function blocosDoDia(d) {
-  const lista = rascunho.filter((a) => a.dia_semana === d).sort((a, b) => a.inicio - b.inicio);
-  const pistas = []; // fim (número do slot) de cada pista
-  for (const a of lista) {
-    let p = pistas.findIndex((fim) => fim < a.inicio);
-    if (p < 0) { p = pistas.length; pistas.push(0); }
-    pistas[p] = a.inicio + a.quantidade - 1; a._pista = p;
-  }
-  return { lista, npistas: Math.max(1, pistas.length) };
+// Cada dia é dividido em uma faixa por subturma (T1 | T2 ...).
+// Aula conjunta ocupa as faixas de todas as suas subturmas.
+function faixas(a) {
+  const idx = turma.subturmas.map((s, i) => (a.subturmas.includes(s.id) ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) return { de: 0, ate: turma.subturmas.length - 1 };
+  return { de: Math.min(...idx), ate: Math.max(...idx) };
 }
 
-function htmlGrade(tipo, dias) {
+function rotulosHorario(tipo) {
   const { linhas, altura } = linhasDoDia(tipo);
-  const cols = `92px repeat(${dias.length}, minmax(${tipo === 'sabado' ? 200 : 120}px, 1fr))`;
-  const rotulos = linhas.map((l) => l.tipo === 'slot'
-    ? `<div style="position:absolute;top:${l.y}px;height:${ALT}px;display:flex;flex-direction:column;justify-content:center;font-size:12px;color:var(--texto-suave)"><b style="color:#2B2B30;font-size:12.5px">${l.h.numero}ª aula</b><span class="num">${hm(l.h.inicio)}–${hm(l.h.fim)}</span></div>`
-    : `<div style="position:absolute;top:${l.y}px;height:${ALT_INT}px;display:flex;align-items:center;font-size:11px;font-weight:600;color:var(--texto-suave);white-space:nowrap" class="num">${l.de}–${l.ate}</div>`).join('');
-  const colunas = dias.map((d) => {
-    const { lista, npistas } = blocosDoDia(d);
-    const vazios = linhas.filter((l) => l.tipo === 'slot').map((l) => `<button type="button" class="slot-vazio" data-add="${d}|${l.h.numero}" style="top:${l.y + 3}px;height:${ALT - 6}px" aria-label="Adicionar aula ${DIAS[d]} ${l.h.numero}ª aula">+</button>`).join('');
-    const intervalos = linhas.filter((l) => l.tipo === 'intervalo').map((l) => `<div style="position:absolute;left:0;right:0;top:${l.y}px;height:${ALT_INT}px;background:#F4F4F6"></div>`).join('');
-    const blocos = lista.map((a) => {
-      const c = comps.find((k) => k.id === a.componente_id);
-      const top = topoDe(tipo, a.inicio), fim = topoDe(tipo, a.inicio + a.quantidade - 1) + ALT;
-      const cor = profsTodos.find((p) => p.id === a.professores[0])?.cor || '#8A8A93';
-      const subs = turma.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
-      const sel = painel.aula?.chave === a.chave;
-      const larg = 100 / npistas;
-      return `<button type="button" class="bloco${sel ? ' bloco-sel' : ''}" data-editar="${a.chave}" style="top:${top + 3}px;height:${fim - top - 6}px;left:calc(${a._pista * larg}% + 3px);width:calc(${larg}% - 6px);background:linear-gradient(${cor}24, ${cor}24), #fff;border-color:${cor}99">
-        <span class="bn">${esc(c?.nome || '?')}</span>
-        <span class="bp">${a.professores.length ? a.professores.map(primeiroNome).map(esc).join(' + ') : '<i>sem professor</i>'}</span>
-        <span class="bd">${esc(subs)}${a.ambiente ? ' · ' + esc(a.ambiente) : ''} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}</span></button>`;
-    }).join('');
-    return `<div style="position:relative;height:${altura}px;border-left:1px solid var(--linha)">${intervalos}${vazios}${blocos}</div>`;
+  return `<div style="position:relative;height:${altura}px">${linhas.map((l) => l.tipo === 'slot'
+    ? `<div style="position:absolute;top:${l.y}px;height:${ALT}px;display:flex;flex-direction:column;justify-content:center;font-size:12px;color:var(--texto-suave);padding-left:4px"><b style="color:#2B2B30;font-size:12.5px">${l.h.numero}ª aula</b><span class="num">${hm(l.h.inicio)}–${hm(l.h.fim)}</span></div>`
+    : `<div style="position:absolute;top:${l.y}px;height:${ALT_INT}px;display:flex;align-items:center;font-size:11px;font-weight:600;color:var(--texto-suave);white-space:nowrap;padding-left:4px" class="num">${l.de}–${l.ate}</div>`).join('')}</div>`;
+}
+
+function colunaDia(d) {
+  const tipo = tipoDia(d);
+  const { linhas, altura } = linhasDoDia(tipo);
+  const subs = turma.subturmas;
+  const n = Math.max(1, subs.length);
+  const larg = 100 / n;
+  const intervalos = linhas.filter((l) => l.tipo === 'intervalo').map((l) => `<div style="position:absolute;left:0;right:0;top:${l.y}px;height:${ALT_INT}px;background:#F4F4F6"></div>`).join('');
+  const divisorias = subs.slice(1).map((_, i) => `<div style="position:absolute;top:0;bottom:0;left:${(i + 1) * larg}%;border-left:1px dashed #E3E3E7"></div>`).join('');
+  const vazios = linhas.filter((l) => l.tipo === 'slot').map((l) => subs.map((s, i) =>
+    `<button type="button" class="slot-vazio" data-add="${d}|${l.h.numero}|${s.id}" style="top:${l.y + 3}px;height:${ALT - 6}px;left:calc(${i * larg}% + 3px);right:auto;width:calc(${larg}% - 6px)" aria-label="Adicionar aula ${s.nome} ${DIAS[d]} ${l.h.numero}ª aula">+</button>`).join('')).join('');
+  const blocos = rascunho.filter((a) => a.dia_semana === d).map((a) => {
+    const c = comps.find((k) => k.id === a.componente_id);
+    const top = topoDe(tipo, a.inicio), fim = topoDe(tipo, a.inicio + a.quantidade - 1) + ALT;
+    const cor = profsTodos.find((p) => p.id === a.professores[0])?.cor || '#8A8A93';
+    const nomes = subs.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
+    const f = faixas(a);
+    const sel = painel.aula?.chave === a.chave;
+    return `<button type="button" class="bloco${sel ? ' bloco-sel' : ''}" data-editar="${a.chave}" title="${esc(c?.nome || '')} · ${esc(nomes)}" style="top:${top + 3}px;height:${fim - top - 6}px;left:calc(${f.de * larg}% + 3px);width:calc(${(f.ate - f.de + 1) * larg}% - 6px);background:linear-gradient(${cor}24, ${cor}24), #fff;border-color:${cor}99">
+      <span class="bn">${esc(c?.nome || '?')}</span>
+      <span class="bp">${a.professores.length ? a.professores.map(primeiroNome).map(esc).join(' + ') : '<i>sem professor</i>'}</span>
+      <span class="bd">${esc(nomes)}${a.ambiente ? ' · ' + esc(a.ambiente) : ''} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}</span></button>`;
   }).join('');
-  return `<div class="grade" style="grid-template-columns:${cols}">
-      <div></div>${dias.map((d) => `<div class="grade-dia">${DIAS[d]}</div>`).join('')}
-      <div style="position:relative;height:${altura}px">${rotulos}</div>${colunas}
-    </div>`;
+  return `<div style="position:relative;height:${altura}px;border-left:1px solid #E3E3E7">${intervalos}${divisorias}${vazios}${blocos}</div>`;
+}
+
+function cabecalhoDia(d) {
+  const subs = turma.subturmas;
+  return `<div class="grade-dia" style="flex-direction:column;height:auto;padding:6px 0 4px;gap:2px;border-left:1px solid #E3E3E7">
+    <span>${DIAS[d]}</span>
+    ${subs.length > 1 ? `<span style="display:grid;grid-template-columns:repeat(${subs.length},1fr);width:100%;font-size:11.5px;font-weight:600;color:var(--texto-suave);text-align:center">${subs.map((s) => `<span>${esc(s.nome)}</span>`).join('')}</span>` : ''}
+  </div>`;
+}
+
+// Segunda a sábado no mesmo quadro; o sábado tem os próprios horários
+function htmlSemana() {
+  const subs = Math.max(1, turma.subturmas.length);
+  const minDia = 48 * subs + 14;
+  const cols = `86px repeat(5, minmax(${minDia}px, 1fr)) 86px minmax(${minDia}px, 1fr)`;
+  return `<div class="grade" style="grid-template-columns:${cols};min-width:${172 + 6 * minDia}px">
+    <div></div>${[1, 2, 3, 4, 5].map(cabecalhoDia).join('')}<div class="grade-dia" style="border-left:2px solid #D4D4DA"></div>${cabecalhoDia(6)}
+    ${rotulosHorario('semana')}${[1, 2, 3, 4, 5].map(colunaDia).join('')}
+    <div style="border-left:2px solid #D4D4DA">${rotulosHorario('sabado')}</div>${colunaDia(6)}
+  </div>`;
 }
 
 function desenhar() {
@@ -253,35 +272,30 @@ function desenhar() {
 
   const completos = comps.filter((c) => contador(c).completo).length;
   $m('#area').innerHTML = `
-    <div class="duas-colunas" style="align-items:flex-start">
-      <section style="flex:3 1 600px;min-width:0;display:flex;flex-direction:column;gap:16px">
-        <div class="card" style="padding:8px;overflow-x:auto">${htmlGrade('semana', [1, 2, 3, 4, 5])}</div>
-        <div class="card" style="padding:8px;overflow-x:auto">
-          <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 8px 10px;flex-wrap:wrap"><strong>Sábado</strong><span class="muted" style="font-size:12.5px">EAD e Extensão · horários de 50 min</span></div>
-          ${htmlGrade('sabado', [6])}
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="padding:8px;overflow-x:auto">${htmlSemana()}</div>
+      <p class="muted" style="margin:-6px 0 0;font-size:12.5px">Cada dia mostra uma coluna por subturma. Aula conjunta (ex.: T1+T2) ocupa as colunas juntas. O sábado tem horários próprios (EAD e Extensão).</p>
+      <section class="card painel" style="gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 style="font-size:15px">Componentes</h2>
+          <span class="muted num" style="font-size:12.5px">${completos} de ${comps.length} completos · contagem: aulas por semana × ${semanas} semanas letivas</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
+        ${comps.map((c) => { const k = contador(c); return `
+          <div style="padding:9px 11px;border-radius:10px;border:1px solid #EEEEF1;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:13.5px;font-weight:600;line-height:1.3">${esc(c.nome)}</span>
+            ${k.info || c.regra === 'pi_extensao' ? '' : `<span class="num" style="font-size:12.5px;font-weight:700;white-space:nowrap;${k.excede ? 'color:var(--erro-chip)' : ''}">${esc(k.texto)}</span>`}</div>
+            ${k.info ? '' : `<div style="height:5px;border-radius:999px;background:#EEEEF1;overflow:hidden"><div style="height:5px;border-radius:999px;width:${k.pct}%;background:${k.completo ? '#1F8A4C' : 'var(--vermelho)'}"></div></div>`}
+            <span class="muted" style="font-size:12px;line-height:1.35">${c.regra === 'pi_extensao' ? esc(k.texto) : k.info ? esc(k.texto) : (c.modalidade === 'ead_sincrona' ? 'EAD síncrona · ' : '') + (c.professor === 'opcional' ? 'professor opcional' : c.professor === 'sem' ? 'sem professor' : 'presencial')}</span>
+          </div>`; }).join('')}
         </div>
       </section>
-      <div style="flex:1 1 300px;max-width:380px;min-width:0;display:flex;flex-direction:column;gap:16px">
-        <aside class="card painel" id="painel"></aside>
-        <aside class="card painel" style="gap:8px">
-          <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:15px">Componentes</h2><span class="muted num" style="font-size:12.5px">${completos} de ${comps.length} completos</span></div>
-          <span class="muted" style="font-size:12px">Contagem: aulas por semana × ${semanas} semanas letivas.</span>
-          ${comps.map((c) => { const k = contador(c); return `
-            <div style="padding:9px 11px;border-radius:10px;border:1px solid #EEEEF1;display:flex;flex-direction:column;gap:6px">
-              <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:13.5px;font-weight:600;line-height:1.3">${esc(c.nome)}</span>
-              ${k.info || c.regra === 'pi_extensao' ? '' : `<span class="num" style="font-size:12.5px;font-weight:700;white-space:nowrap;${k.excede ? 'color:var(--erro-chip)' : ''}">${esc(k.texto)}</span>`}</div>
-              ${k.info ? '' : `<div style="height:5px;border-radius:999px;background:#EEEEF1;overflow:hidden"><div style="height:5px;border-radius:999px;width:${k.pct}%;background:${k.completo ? '#1F8A4C' : 'var(--vermelho)'}"></div></div>`}
-              <span class="muted" style="font-size:12px;line-height:1.35">${c.regra === 'pi_extensao' ? esc(k.texto) : k.info ? esc(k.texto) : (c.modalidade === 'ead_sincrona' ? 'EAD síncrona · ' : '') + (c.professor === 'opcional' ? 'professor opcional' : c.professor === 'sem' ? 'sem professor' : 'presencial')}</span>
-            </div>`; }).join('')}
-        </aside>
-      </div>
     </div>`;
 
   $m('#area').querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => {
-    const [d, n] = b.dataset.add.split('|').map(Number);
+    const [dTxt, nTxt, subId] = b.dataset.add.split('|');
+    const d = +dTxt, n = +nTxt;
     const primeiro = comps.find((c) => ocupaHorario(c) && !contador(c).completo) || comps.find(ocupaHorario);
     if (!primeiro) { avisar('Nenhum componente desta turma ocupa horário.', 'aviso'); return; }
-    painel = { modo: 'novo', aula: { chave: `n${seq++}`, componente_id: primeiro.id, dia_semana: d, inicio: n, quantidade: Math.min(2, HOR[tipoDia(d)].length - n + 1), ambiente: '', professores: [], subturmas: turma.subturmas.map((s) => s.id) } };
+    painel = { modo: 'novo', aula: { chave: `n${seq++}`, componente_id: primeiro.id, dia_semana: d, inicio: n, quantidade: Math.min(2, HOR[tipoDia(d)].length - n + 1), ambiente: '', professores: [], subturmas: [subId] } };
     desenhar();
   }));
   $m('#area').querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => {
@@ -292,15 +306,23 @@ function desenhar() {
   desenharPainel();
 }
 
-function desenharPainel() {
-  const el = $m('#painel');
-  if (painel.modo === 'vazio') {
-    el.innerHTML = `<h2>Como usar</h2>
-      <p style="margin:0;font-size:13.5px;line-height:1.55;color:var(--texto-2)">Clique em um <strong>+</strong> da grade para adicionar uma aula, ou em uma aula para editar.</p>
-      <p style="margin:0;font-size:13.5px;line-height:1.55;color:var(--texto-2)">Aula com T1+T2 juntas conta uma vez para o professor. Dois professores na mesma aula recebem a carga cheia cada um.</p>
-      <p class="muted" style="margin:0;font-size:12.5px;line-height:1.5">Ao salvar, o sistema confere também a carga de 40 aulas por semana e a pós de cada professor. Se algo não passar, nada é gravado.</p>`;
-    return;
+let dlgAula = null;
+function janelaAula() {
+  if (!dlgAula) {
+    dlgAula = document.createElement('dialog');
+    dlgAula.className = 'dialogo';
+    dlgAula.style.width = 'min(560px, calc(100vw - 32px))';
+    dlgAula.innerHTML = '<div class="dialogo-form" id="painel"></div>';
+    document.body.appendChild(dlgAula);
+    dlgAula.addEventListener('cancel', (ev) => { ev.preventDefault(); painel = { modo: 'vazio' }; desenhar(); });
   }
+  return dlgAula;
+}
+function desenharPainel() {
+  const dlg = janelaAula();
+  const el = dlg.querySelector('#painel');
+  if (painel.modo === 'vazio') { if (dlg.open) dlg.close(); return; }
+  if (!dlg.open) dlg.showModal();
   const a = painel.aula;
   const c = comps.find((k) => k.id === a.componente_id);
   const tipo = tipoDia(a.dia_semana);
