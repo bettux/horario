@@ -75,7 +75,7 @@ function dialogoTurma(t) {
       <div class="campo"><label for="t-mat">Curso e matriz</label><select id="t-mat" ${nova ? '' : 'disabled'}>${opMatriz}</select></div>
       <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
         <div class="campo" id="box-sem"><label for="t-sem">Semestre</label><select id="t-sem" ${nova ? '' : 'disabled'}></select></div>
-        <div class="campo"><label for="t-id">Identificação</label><input id="t-id" value="${esc(t?.identificacao || 'Turma A')}" required></div>
+        <div class="campo"><label for="t-id">Identificação (código da turma)</label><input id="t-id" value="${esc(t?.identificacao || "")}" placeholder="Ex.: CTSADS226N1" required></div>
       </div>
       <div class="campo" id="box-sub"><span class="rotulo">Subturmas</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="subs"></div>

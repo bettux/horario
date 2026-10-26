@@ -101,12 +101,11 @@ function detalhe(p, c) {
   return `<h2>${esc(p.nome.split(' ')[0])} · semana ${c.semana} (${ddmm(parseData(c.segunda))})</h2>
     ${l('Graduação', `${num(g)} aulas`)}
     ${c.pos_minutos ? l(`Pós: ${duracao(c.pos_minutos)} = ${c.pos_minutos} min ÷ 50`, `${num(c.pos_minutos / 50)} → ${p50}`) : l('Pós', '0')}
-    ${l(`Graduação com 20%: ${num(g)} × 1,20`, num(g * 1.2))}
-    ${l(`Pós com 10%: ${p50} × 1,10`, num(p50 * 1.1))}
-    ${l(`Ensino com preparação: ${num(g * 1.2 + p50 * 1.1)} arredondado para cima`, c.ensino)}
+    ${l('Preparação: 20% da graduação + 10% da pós, cada um arredondado para cima', `+ ${num(c.preparacao)}`)}
+    ${l('Ensino com preparação', c.ensino)}
     ${l('Atividades semanais (sem preparação)', `+ ${num(c.atividades)}`)}
     ${l('<strong>Total semanal</strong>', `${num(c.total)} de 40`, true)}
-    <p class="muted" style="margin:6px 0 0;font-size:12.5px;line-height:1.5">O arredondamento para cima acontece uma única vez, sobre o ensino com preparação. Atividades "do período" não entram no total semanal.</p>`;
+    <p class="muted" style="margin:6px 0 0;font-size:12.5px;line-height:1.5">Igual à planilha da coordenação: os 20% e os 10% são arredondados para cima separadamente. Aulas de Extensão contam sem preparação. Atividades "do período" não entram no total semanal.</p>`;
 }
 
 carregar();

@@ -4,6 +4,12 @@ import { esc, parseData, ddmm } from './util.js';
 
 const { main } = await iniciarPagina('atividades');
 
+// Tipo = linha correspondente na planilha da coordenação
+const TIPOS = {
+  outras: 'Outras atividades', coordenacao_curso: 'Coordenação de curso', ic_orientacao: 'Iniciação científica / orientação',
+  estagio: 'Coordenação de estágio', extensao: 'Extensão universitária', pesquisa_cnpq: 'Grupo de pesquisa CNPq', distrito: 'Distrito ou núcleo de tecnologia',
+};
+
 main.innerHTML = `
   <header class="cabecalho"><div>
     <h1>Atividades complementares</h1>
@@ -19,7 +25,8 @@ main.innerHTML = `
       <form class="card painel" id="form" novalidate>
         <h2 id="titulo-form">Nova atividade</h2>
         <div class="linha-form">
-          <div class="campo"><label for="desc">Descrição</label><input id="desc" placeholder="Ex.: Orientação de TCC" required></div>
+          <div class="campo"><label for="tipo">Tipo</label><select id="tipo">${Object.entries(TIPOS).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>
+          <div class="campo"><label for="desc">Descrição</label><input id="desc" placeholder="Ex.: CST ADS ou Comissão de TCC" required></div>
           <div class="campo"><label for="qtd">Quantidade (aulas equivalentes)</label><input id="qtd" type="number" min="0.5" step="0.5" required></div>
           <div class="campo"><label for="obs">Observação</label><input id="obs"></div>
         </div>
@@ -61,12 +68,12 @@ async function carregar() {
   ]);
   atividades = ativ;
   main.querySelector('#lista').innerHTML = `<table>
-    <thead><tr><th>Descrição</th><th style="text-align:right">Quantidade</th><th>Frequência</th><th>Observação</th><th></th></tr></thead>
-    <tbody>${ativ.length ? ativ.map((a) => `<tr><td>${esc(a.descricao)}</td><td class="num" style="text-align:right">${Number(a.quantidade).toLocaleString('pt-BR')}</td>
+    <thead><tr><th>Descrição</th><th>Tipo</th><th style="text-align:right">Quantidade</th><th>Frequência</th><th>Observação</th><th></th></tr></thead>
+    <tbody>${ativ.length ? ativ.map((a) => `<tr><td>${esc(a.descricao)}</td><td>${esc(TIPOS[a.tipo] || a.tipo)}</td><td class="num" style="text-align:right">${Number(a.quantidade).toLocaleString('pt-BR')}</td>
       <td>${a.frequencia === 'semanal' ? '<span class="chip chip-red">Semanal</span>' : '<span class="chip chip-neu">Total do período</span>'}</td>
       <td class="muted">${esc(a.observacao || '')}</td>
       <td><div class="acoes"><button class="btn btn-s" data-editar="${a.id}">Editar</button><button class="btn btn-s" data-excluir="${a.id}">Excluir</button></div></td></tr>`).join('')
-      : '<tr><td colspan="5" class="muted">Nenhuma atividade neste período.</td></tr>'}</tbody></table>`;
+      : '<tr><td colspan="6" class="muted">Nenhuma atividade neste período.</td></tr>'}</tbody></table>`;
   main.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => preencherForm(ativ.find((a) => a.id === b.dataset.editar))));
   main.querySelectorAll('[data-excluir]').forEach((b) => b.addEventListener('click', async () => {
     if (!(await confirmar('Excluir atividade?', 'A carga do professor será recalculada.', 'Excluir'))) return;
@@ -97,7 +104,7 @@ function preencherForm(a) {
   editando = a;
   main.querySelector('#titulo-form').textContent = 'Editar atividade';
   form.querySelector('[type=submit]').textContent = 'Salvar atividade';
-  form.desc.value = a.descricao; form.qtd.value = a.quantidade; form.obs.value = a.observacao || '';
+  form.tipo.value = a.tipo || 'outras'; form.desc.value = a.descricao; form.qtd.value = a.quantidade; form.obs.value = a.observacao || '';
   form.querySelector(`input[name=freq][value=${a.frequencia}]`).checked = true;
   form.desc.focus();
 }
@@ -118,7 +125,7 @@ form.addEventListener('submit', async (ev) => {
     if (!(qtd > 0)) throw new Error('A quantidade precisa ser maior que zero.');
     await rpc('salvar_atividade', {
       p_id: editando?.id ?? null, p_prof: selProf.value, p_periodo: periodoId, p_descricao: desc,
-      p_quantidade: qtd, p_frequencia: form.querySelector('input[name=freq]:checked').value, p_observacao: form.obs.value.trim() || null,
+      p_quantidade: qtd, p_frequencia: form.querySelector('input[name=freq]:checked').value, p_observacao: form.obs.value.trim() || null, p_tipo: form.tipo.value,
     });
     avisar(editando ? 'Atividade salva.' : 'Atividade adicionada.');
     carregar();

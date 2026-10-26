@@ -67,15 +67,16 @@ async function carregarComponentes() {
     </div>
     ${ehPos ? '' : `<div class="abas" role="tablist" style="padding:0 16px">${semestres.map((s) => `<button class="aba" role="tab" data-s="${s}" aria-selected="${s === semestreAtual}">${s}º semestre</button>`).join('')}</div>`}
     <div class="tabela-box"><table>
-      <thead><tr><th>Componente</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th><th>Regra</th><th>Professor</th><th></th></tr></thead>
+      <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th><th>Regra</th><th>Professor</th><th></th></tr></thead>
       <tbody>${lista.length ? lista.map((c) => `<tr class="${c.ativo ? '' : 'inativo'}">
         <td>${esc(c.nome)}${c.ativo ? '' : ' <span class="chip chip-neu">inativo</span>'}</td>
+        <td class="muted">${esc(c.sigla || '')}</td>
         <td>${c.modalidade === 'presencial' || c.modalidade === 'pos' ? MODALIDADES[c.modalidade] : `<span class="chip chip-aviso">${MODALIDADES[c.modalidade]}</span>`}</td>
         <td class="num" style="text-align:right">${c.carga ?? '—'}${c.carga != null ? unidade : ''}</td>
         <td>${c.regra === 'pi_extensao' ? '<span class="chip chip-red">PI / Extensão</span>' : '<span class="muted">Normal</span>'}</td>
         <td>${PROFESSOR[c.professor]}</td>
         <td><div class="acoes"><button class="btn btn-s" data-editar="${c.id}">Editar</button></div></td></tr>`).join('')
-        : '<tr><td colspan="6" class="muted">Nenhum componente neste semestre.</td></tr>'}</tbody></table></div>
+        : '<tr><td colspan="7" class="muted">Nenhum componente neste semestre.</td></tr>'}</tbody></table></div>
     <div class="barra" style="justify-content:space-between;border-top:1px solid var(--linha)">
       <span class="muted" style="font-size:13px">Componente já usado em aulas não pode ser excluído, só desativado.</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${ehPos ? '' : '<button class="btn" id="novo-sem">Novo semestre</button>'}<button class="btn btn-p" id="novo-comp">Adicionar componente</button></div>
@@ -96,7 +97,11 @@ function dialogoComponente(c, ehPos) {
   abrirDialogo({
     titulo: novo ? 'Novo componente' : 'Editar componente',
     corpo: `
-      <div class="campo"><label for="c-nome">Nome</label><input id="c-nome" value="${esc(c.nome)}" required></div>
+      <div class="linha-form" style="grid-template-columns:minmax(0,3fr) minmax(0,1fr)">
+        <div class="campo"><label for="c-nome">Nome</label><input id="c-nome" value="${esc(c.nome)}" required></div>
+        <div class="campo"><label for="c-sigla">Sigla</label><input id="c-sigla" value="${esc(c.sigla || '')}" maxlength="12" placeholder="Automática"></div>
+      </div>
+      <p class="muted" style="margin:-4px 0 0;font-size:12.5px">A sigla aparece na planilha. Em branco, o sistema usa as iniciais do nome.</p>
       <div class="linha-form" style="grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="campo"><label for="c-sem">Semestre</label><input id="c-sem" type="number" min="0" max="12" value="${c.semestre}" ${ehPos ? 'disabled' : ''}></div>
         <div class="campo"><label for="c-ordem">Ordem</label><input id="c-ordem" type="number" min="0" value="${c.ordem}"></div>
@@ -111,7 +116,7 @@ function dialogoComponente(c, ehPos) {
     aoConfirmar: async (dlg) => {
       const v = (id) => dlg.querySelector(id).value;
       const dados = {
-        matriz_id: matrizAtual, nome: v('#c-nome').trim(), semestre: ehPos ? 0 : +v('#c-sem'), ordem: +v('#c-ordem') || 0,
+        matriz_id: matrizAtual, nome: v('#c-nome').trim(), sigla: v('#c-sigla').trim() || null, semestre: ehPos ? 0 : +v('#c-sem'), ordem: +v('#c-ordem') || 0,
         carga: v('#c-carga') === '' ? null : +v('#c-carga'), modalidade: v('#c-mod'), professor: v('#c-prof'), regra: v('#c-regra'),
         ativo: dlg.querySelector('#c-ativo').checked,
       };
