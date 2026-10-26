@@ -131,9 +131,8 @@ const ocupaHorario = (c) => ['presencial', 'ead_sincrona'].includes(c.modalidade
 function contador(c) {
   if (!ocupaHorario(c)) return { texto: c.modalidade === 'ead_assincrona' ? 'EAD assíncrona · não ocupa horário' : 'Não ocupa horário', pct: 100, completo: true, info: true };
   if (c.regra === 'pi_extensao') {
-    const porSub = turma.subturmas.map((s) => rascunho.filter((a) => a.subturmas.includes(s.id) && comps.find((k) => k.id === a.componente_id)?.regra === 'pi_extensao').reduce((t, a) => t + a.quantidade, 0));
     const meu = Math.max(0, ...turma.subturmas.map((s) => rascunho.filter((a) => a.componente_id === c.id && a.subturmas.includes(s.id)).reduce((t, a) => t + a.quantidade, 0)));
-    return { texto: `${meu}/semana · PI + Extensão somam ${Math.max(0, ...porSub)} de 2`, pct: Math.min(100, (Math.max(0, ...porSub) / 2) * 100), completo: meu > 0 };
+    return { texto: `${meu} de 2 aulas por semana (máximo)`, pct: Math.min(100, (meu / 2) * 100), completo: meu > 0 };
   }
   const porSub = turma.subturmas.map((s) => ({ nome: s.nome, total: rascunho.filter((a) => a.componente_id === c.id && a.subturmas.includes(s.id)).reduce((t, a) => t + a.quantidade, 0) * semanas }));
   const iguais = porSub.every((x) => x.total === porSub[0].total);
@@ -177,8 +176,8 @@ function checar(a) {
   const simulado = [...outrasDaTurma, a];
   if (c.regra === 'pi_extensao') {
     for (const s of turma.subturmas.filter((x) => a.subturmas.includes(x.id))) {
-      const tot = simulado.filter((x) => x.subturmas.includes(s.id) && comps.find((k) => k.id === x.componente_id)?.regra === 'pi_extensao').reduce((t, x) => t + x.quantidade, 0);
-      if (tot > 2) r.push({ ok: false, t: `PI + Extensão somariam ${tot} aulas por semana na ${s.nome}. O máximo é 2.` });
+      const tot = simulado.filter((x) => x.subturmas.includes(s.id) && x.componente_id === c.id).reduce((t, x) => t + x.quantidade, 0);
+      r.push(tot > 2 ? { ok: false, t: `${c.nome} teria ${tot} aulas por semana na ${s.nome}. O máximo é 2.` } : { ok: true, t: `${s.nome}: ${tot} de 2 aulas por semana` });
     }
   } else if (c.carga != null) {
     for (const s of turma.subturmas.filter((x) => a.subturmas.includes(x.id))) {

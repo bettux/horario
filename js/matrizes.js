@@ -8,7 +8,7 @@ const MODALIDADES = {
   presencial: 'Presencial', ead_sincrona: 'EAD síncrona', ead_assincrona: 'EAD assíncrona', pos: 'Pós (módulo)', tcc: 'TCC / Monografia',
 };
 const PROFESSOR = { obrigatorio: 'Obrigatório', opcional: 'Opcional', sem: 'Sem professor' };
-const REGRA = { normal: 'Normal', pi_extensao: 'PI / Extensão (até 2/semana somadas, sem exigir carga)' };
+const REGRA = { normal: 'Normal', pi_extensao: 'PI / Extensão (até 2 aulas/semana cada, sem exigir carga)' };
 
 main.innerHTML = `
   <header class="cabecalho">
