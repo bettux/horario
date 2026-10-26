@@ -246,3 +246,38 @@ button.pmod:hover { border-color: var(--borda-forte); }
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #E3E3E7; border-radius: 10px; font-size: 13px; line-height: 1.4; font-weight: 500; cursor: pointer; flex: 1 1 160px; }
 .opt input { margin-top: 2px; }
 .opt-on { border-color: var(--vermelho); background: #FFF8F9; }
+
+/* ---------- Relatórios de aulas (tela e impressão A4 paisagem) ---------- */
+.rel { background: #fff; border: 1px solid var(--borda); border-radius: var(--raio-card); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.rel + .rel { margin-top: 20px; }
+.rel-cab { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; border-bottom: 3px solid var(--vermelho); padding-bottom: 10px; }
+.rel-cab h2 { font-size: 19px; margin: 0; }
+.rel-cab .rel-sub { font-size: 12.5px; color: var(--texto-suave); margin-top: 3px; }
+.rel-cab .rel-inst { font-size: 11.5px; color: var(--texto-suave); text-align: right; line-height: 1.45; }
+.rel h3 { font-size: 13px; margin: 4px 0 0; color: var(--vermelho-escuro); text-transform: uppercase; letter-spacing: .04em; }
+.rel-grade { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; }
+.rel-grade th, .rel-grade td { border: 1px solid #D9D9DE; padding: 5px 6px; vertical-align: top; text-align: left; }
+.rel-grade thead th { background: var(--vermelho); color: #fff; font-weight: 600; font-size: 11.5px; }
+.rel-grade th.h { width: 86px; background: #F4F4F6; color: var(--texto); font-weight: 600; white-space: nowrap; }
+.rel-grade td.vazio { background: #FAFAFB; }
+.rel-aula { display: flex; flex-direction: column; gap: 1px; padding: 3px 5px; border-left: 3px solid var(--vermelho); background: #FFF5F6; border-radius: 3px; }
+.rel-aula + .rel-aula { margin-top: 4px; }
+.rel-aula strong { font-size: 11.5px; line-height: 1.25; }
+.rel-aula span { font-size: 10.5px; color: var(--texto-2); line-height: 1.3; }
+.rel-aula.pos { border-left-color: #6B4FA0; background: #F5F1FB; }
+.rel-tab { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.rel-tab th, .rel-tab td { border-bottom: 1px solid #E6E6EA; padding: 5px 6px; text-align: left; }
+.rel-tab th { font-weight: 600; color: var(--texto-suave); font-size: 11px; }
+.rel-resumo { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 12px; }
+.rel-resumo b { font-weight: 700; }
+.rel-rodape { font-size: 10.5px; color: var(--texto-suave); display: flex; justify-content: space-between; border-top: 1px solid #E6E6EA; padding-top: 6px; }
+@page { size: A4 landscape; margin: 9mm; }
+@media print {
+  .topo, .lateral, .so-tela, #avisos { display: none !important; }
+  body, .corpo, .principal { background: #fff !important; padding: 0 !important; margin: 0 !important; display: block !important; }
+  .rel { border: 0; border-radius: 0; padding: 0; break-after: page; }
+  .rel:last-child { break-after: auto; }
+  .rel + .rel { margin-top: 0; }
+  .rel-grade tr, .rel-tab tr, .rel-aula { break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
