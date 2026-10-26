@@ -12,9 +12,26 @@ export async function rpc(nome, args = {}) {
   return data;
 }
 
-// Converte erros do banco: as validações vêm em "details", uma por linha
+// Executa uma consulta do supabase-js e devolve data, ou lança erro legível
+export async function q(consulta) {
+  const { data, error } = await consulta;
+  if (error) throw erroLegivel(error);
+  return data;
+}
+
+// Converte erros do banco em português; validações vêm em "details", uma por linha
 export function erroLegivel(error) {
-  const e = new Error(error.message || 'Erro inesperado.');
-  e.linhas = error.details ? String(error.details).split('\n').filter(Boolean) : [];
+  const codigos = {
+    '23505': 'Já existe um cadastro com esses dados.',
+    '23503': 'Este cadastro está em uso e não pode ser excluído.',
+    '23514': 'Algum valor está fora do permitido. Confira os campos.',
+    '23502': 'Preencha todos os campos obrigatórios.',
+    '22P02': 'Algum campo tem um formato inválido.',
+    '22007': 'Data ou horário inválido.',
+    '22008': 'Data ou horário inválido.',
+  };
+  const e = new Error(codigos[error.code] || error.message || 'Erro inesperado.');
+  e.linhas = error.details && error.code === 'P0001' ? String(error.details).split('\n').filter(Boolean) : [];
+  e.codigo = error.code;
   return e;
 }
