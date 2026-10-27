@@ -65,7 +65,7 @@ function desenhar() {
     $m('#area').innerHTML = `<div class="duas-colunas">
       <section class="card larga tabela-box"><table style="min-width:760px">
         <thead><tr><th>Professor</th><th style="text-align:right">Graduação<br><span style="font-weight:500">aulas 50 min</span></th><th style="text-align:right">Aulas pós<br><span style="font-weight:500">equiv. 50 min</span></th>
-          <th style="text-align:right">Preparação<br><span style="font-weight:500">20% grad · 10% pós</span></th><th style="text-align:right">Atividades<br><span style="font-weight:500">semanais</span></th><th style="text-align:right">Total semanal</th><th>Detalhes</th></tr></thead>
+          <th style="text-align:right">Preparação</th><th style="text-align:right">Atividades<br><span style="font-weight:500">semanais</span></th><th style="text-align:right">Total semanal</th><th>Detalhes</th></tr></thead>
         <tbody>${linhas.map(({ p, c }) => `<tr class="${p.ativo ? '' : 'inativo'}"${p.id === sel?.p.id ? ' style="background:#FFF8F9"' : ''}>
           <td>${esc(p.nome)}${p.ativo ? '' : ' <span class="chip chip-neu">inativo</span>'}</td>
           <td class="num" style="text-align:right">${num(c.graduacao)}</td>

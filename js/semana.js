@@ -54,7 +54,7 @@ export function htmlSemana(dados, periodo, segunda, { mostrarProfessores = false
     <section class="kpis" aria-label="Carga da semana">
       <div class="card kpi"><span class="kl">Graduação</span><span class="kv num">${num(c.graduacao)}</span><span class="kd">aulas de 50 min</span></div>
       <div class="card kpi"><span class="kl">Aulas pós</span><span class="kv num">${c.pos50}</span><span class="kd">equiv. 50 min${c.pos_minutos ? ' · ' + duracao(c.pos_minutos) + ' reais' : ''}</span></div>
-      <div class="card kpi"><span class="kl">Preparação</span><span class="kv num">${num(c.preparacao)}</span><span class="kd">20% grad · 10% pós</span></div>
+      <div class="card kpi"><span class="kl">Preparação</span><span class="kv num">${num(c.preparacao)}</span><span class="kd">aulas equivalentes</span></div>
       <div class="card kpi"><span class="kl">Atividades complementares / semana</span><span class="kv num">${num(c.atividades)}</span><span class="kd">sem preparação</span></div>
       <div class="card kpi" style="border-color:#F2C4CB;background:#FFF8F9"><span class="kl" style="color:var(--vermelho-escuro)">Total semanal</span><span class="kv num">${num(c.total)} <span style="font-size:15px;font-weight:600;color:var(--texto-suave)">/ 40</span></span><span class="kd">aulas equivalentes</span></div>
     </section>` : '';
