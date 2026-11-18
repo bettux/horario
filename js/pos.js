@@ -1,4 +1,5 @@
 import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js';
+import { tons } from './cores.js';
 import { sb, q, rpc } from './supabase.js';
 import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, diaIso, duracao } from './util.js';
 
@@ -112,8 +113,8 @@ function desenhar() {
       const of = ofertas.find((o) => o.id === e.oferta_id);
       const tot = encontros.filter((x) => x.oferta_id === e.oferta_id).sort((a, b) => a.data.localeCompare(b.data) || a.inicio.localeCompare(b.inicio));
       const n = tot.findIndex((x) => x.id === e.id) + 1;
-      const cor = profCor(of.professor_id);
-      return `<button type="button" class="pcel pcel-aula" data-mod="${e.componente_id}" style="background:linear-gradient(${cor}24, ${cor}24), #fff;border-color:${cor}99" title="${esc(e.componente)} · ${esc(profNome(of.professor_id))}">
+      const t = tons(profCor(of.professor_id));
+      return `<button type="button" class="pcel pcel-aula" data-mod="${e.componente_id}" style="background:${t.fundo};border-color:${t.borda};color:${t.texto}" title="${esc(e.componente)} · ${esc(profNome(of.professor_id))}">
         <b>${esc(e.componente)}</b><span>${esc(profNome(of.professor_id).split(' ')[0])} · ${e.inicio.slice(0, 5)}–${e.fim.slice(0, 5)} · ${n}/${tot.length}</span></button>`;
     }).join('');
   };

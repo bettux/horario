@@ -1,4 +1,5 @@
 import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js';
+import { tons } from './cores.js';
 import { sb, q, rpc } from './supabase.js';
 import { esc, DIAS, mostrarAlerta } from './util.js';
 
@@ -229,11 +230,11 @@ function colunaDia(d) {
   const blocos = rascunho.filter((a) => a.dia_semana === d).map((a) => {
     const c = comps.find((k) => k.id === a.componente_id);
     const top = topoDe(tipo, a.inicio), fim = topoDe(tipo, a.inicio + a.quantidade - 1) + ALT;
-    const cor = profsTodos.find((p) => p.id === a.professores[0])?.cor || '#8A8A93';
+    const t = tons(profsTodos.find((p) => p.id === a.professores[0])?.cor);
     const nomes = subs.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
     const f = faixas(a);
     const sel = painel.aula?.chave === a.chave;
-    return `<button type="button" class="bloco${sel ? ' bloco-sel' : ''}" data-editar="${a.chave}" title="${esc(c?.nome || '')} · ${esc(nomes)}" style="top:${top + 3}px;height:${fim - top - 6}px;left:calc(${f.de * larg}% + 3px);width:calc(${(f.ate - f.de + 1) * larg}% - 6px);background:linear-gradient(${cor}24, ${cor}24), #fff;border-color:${cor}99">
+    return `<button type="button" class="bloco${sel ? ' bloco-sel' : ''}" data-editar="${a.chave}" title="${esc(c?.nome || '')} · ${esc(nomes)}" style="top:${top + 3}px;height:${fim - top - 6}px;left:calc(${f.de * larg}% + 3px);width:calc(${(f.ate - f.de + 1) * larg}% - 6px);background:${t.fundo};border-color:${t.borda};--bt:${t.texto};--bs:${t.suave}">
       <span class="bn">${esc(c?.nome || '?')}</span>
       <span class="bp">${a.professores.length ? a.professores.map(primeiroNome).map(esc).join(' + ') : '<i>sem professor</i>'}</span>
       <span class="bd">${esc(nomes)}${a.ambiente ? ' · ' + esc(a.ambiente) : ''} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}</span></button>`;

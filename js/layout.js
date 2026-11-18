@@ -38,6 +38,10 @@ const MENU_PROF = [
 // Telas já entregues (as demais aparecem como "em breve")
 const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'grade', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios']);
 
+// Telas largas: o menu começa recolhido (sanduíche) e abre por cima ao clicar
+const RECOLHIDAS = new Set(['grade', 'montar']);
+const TELA_ESTREITA = '(max-width: 860px)';
+
 function linkHtml(item, ativo, classe = '') {
   const pronto = PRONTAS.has(item.id);
   if (!pronto) return `<a class="${classe} embreve" aria-disabled="true" title="Em construção">${esc(item.rotulo)}</a>`;
@@ -61,11 +65,15 @@ export function montarLayout(perfil, ativo) {
 
   document.body.insertAdjacentHTML('afterbegin', `
     <header class="topo">
-      <p class="topo-titulo">${esc(TITULO_SISTEMA)}</p>
+      <div class="topo-esq">
+        <button type="button" class="menu-botao" id="menu-botao" aria-label="Mostrar ou esconder o menu" aria-controls="menu-lateral" aria-expanded="false">&#9776;</button>
+        <p class="topo-titulo">${esc(TITULO_SISTEMA)}</p>
+      </div>
       <div class="topo-usuario"><span>${esc(perfil.nome)}</span><span class="topo-perfil">${perfil.perfil === 'adm' ? 'Administrador' : 'Professor'}</span></div>
     </header>
     <div class="corpo">
-      <nav class="lateral" aria-label="Menu principal"><div class="menu">${itens}</div></nav>
+      <div class="menu-veu" id="menu-veu"></div>
+      <nav class="lateral" id="menu-lateral" aria-label="Menu principal"><div class="menu">${itens}</div></nav>
       <main class="principal" id="principal"></main>
     </div>`);
 
@@ -78,5 +86,40 @@ export function montarLayout(perfil, ativo) {
     est[id] = abrir; sessionStorage.setItem('menu-abertos', JSON.stringify(est));
   }));
   document.querySelector('[data-sair]').addEventListener('click', sair);
+  configurarSanduiche(ativo);
   return document.getElementById('principal');
+}
+
+// Menu sanduíche: nas telas largas (e no celular) o menu fica escondido e abre por cima;
+// nas demais telas o botão recolhe ou mostra a lateral, e a escolha fica lembrada.
+function configurarSanduiche(ativo) {
+  const corpo = document.body, botao = document.getElementById('menu-botao');
+  const estreita = window.matchMedia(TELA_ESTREITA);
+  const forcado = () => RECOLHIDAS.has(ativo) || estreita.matches;
+  const preferencia = () => { try { return localStorage.getItem('menu-recolhido') === '1'; } catch { return false; } };
+  const medirTopo = () => document.documentElement.style.setProperty('--topo-alt', `${document.querySelector('.topo').offsetHeight}px`);
+  window.addEventListener('resize', medirTopo);
+  medirTopo();
+  const aplicar = () => {
+    corpo.classList.toggle('menu-recolhido', forcado() || preferencia());
+    corpo.classList.remove('menu-aberto');
+    botao.setAttribute('aria-expanded', String(!corpo.classList.contains('menu-recolhido')));
+  };
+  const fechar = () => { corpo.classList.remove('menu-aberto'); botao.setAttribute('aria-expanded', 'false'); };
+  botao.addEventListener('click', () => {
+    if (forcado()) {
+      const abrir = !corpo.classList.contains('menu-aberto');
+      corpo.classList.toggle('menu-aberto', abrir);
+      botao.setAttribute('aria-expanded', String(abrir));
+      return;
+    }
+    const recolher = !corpo.classList.contains('menu-recolhido');
+    try { localStorage.setItem('menu-recolhido', recolher ? '1' : '0'); } catch { /* ignora */ }
+    aplicar();
+  });
+  document.getElementById('menu-veu').addEventListener('click', fechar);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && corpo.classList.contains('menu-aberto')) fechar(); });
+  document.getElementById('menu-lateral').addEventListener('click', (e) => { if (e.target.closest('a[href]')) fechar(); });
+  estreita.addEventListener('change', aplicar);
+  aplicar();
 }

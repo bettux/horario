@@ -2,10 +2,10 @@ import { iniciarPagina, avisar, mostrarErro } from './pagina.js';
 import { sb, q, rpc } from './supabase.js';
 import { contas } from './auth.js';
 import { esc, mostrarAlerta } from './util.js';
+import { CORES_PROFESSORES, proximaCor } from './cores.js';
 
 const { perfil, main } = await iniciarPagina('professores');
 
-const CORES = ['#14857C', '#3F4FC2', '#C98A1B', '#7A45B8', '#2B7BC4', '#4D8C3A', '#B83A7B', '#8C6A4F', '#0E7490', '#6D28D9', '#B45309', '#475569'];
 
 main.innerHTML = `
   <header class="cabecalho">
@@ -60,8 +60,10 @@ function listar() {
 function abrirForm(p) {
   editando = p || null;
   const a = p ? acessos.find((x) => x.professor_id === p.id) : null;
-  const usadas = new Set(profs.map((x) => x.cor));
-  const cor = p?.cor || CORES.find((c) => !usadas.has(c)) || CORES[0];
+  const cor = (p?.cor || proximaCor(profs.map((x) => x.cor))).toUpperCase();
+  // cor antiga (fora da paleta nova) continua disponível para o professor que já a usa
+  const CORES = CORES_PROFESSORES.includes(cor) ? CORES_PROFESSORES : [cor, ...CORES_PROFESSORES];
+  const emUso = new Map(profs.filter((x) => x.id !== p?.id).map((x) => [String(x.cor).toUpperCase(), x.nome]));
   const form = main.querySelector('#form');
   form.innerHTML = `
     <h2>${p ? 'Editar professor' : 'Novo professor'}</h2>
@@ -69,7 +71,8 @@ function abrirForm(p) {
     <div class="campo"><label for="nif">NIF</label><input id="nif" inputmode="numeric" value="${esc(p?.nif || '')}" ${a?.tem_acesso ? 'disabled' : ''} required>
       ${a?.tem_acesso ? '<span class="muted" style="font-size:12px">O NIF é o login; não pode ser alterado depois que o acesso foi criado.</span>' : ''}</div>
     <div class="campo"><span class="rotulo">Cor nas grades</span>
-      <div class="cores" id="cores">${CORES.map((c) => `<button type="button" style="background:${c}" data-cor="${c}" aria-pressed="${c === cor}" aria-label="Cor ${c}"></button>`).join('')}</div></div>
+      <div class="cores" id="cores">${CORES.map((c) => `<button type="button" style="background:${c}" data-cor="${c}" aria-pressed="${c === cor}" aria-label="Cor ${c}${emUso.has(c) ? ', em uso por ' + esc(emUso.get(c)) : ''}" title="${emUso.has(c) ? 'Em uso: ' + esc(emUso.get(c)) : 'Livre'}"${emUso.has(c) ? ' data-usada' : ''}></button>`).join('')}</div>
+      <span class="muted" style="font-size:12px">A cor com contorno pontilhado já está em uso por outro professor.</span></div>
     <label class="check"><input type="checkbox" id="ativo" ${!p || p.ativo ? 'checked' : ''}> Professor ativo</label>
     <div class="requisitos" style="gap:10px">
       ${a?.tem_acesso
