@@ -1,6 +1,8 @@
 import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js';
 import { sb, q, rpc } from './supabase.js';
 import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js';
+import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js';
+import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js';
 
 const { main } = await iniciarPagina('configuracoes');
 
@@ -37,19 +39,26 @@ async function abaPeriodos() {
   const periodos = await listarPeriodos();
   const hoje = new Date().toISOString().slice(0, 10);
   area.innerHTML = `
-    <div class="duas-colunas">
-      <section class="card larga tabela-box">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <section class="card tabela-box">
         <table>
-          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Semanas letivas</th><th>Situação</th><th></th></tr></thead>
+          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Semanas letivas</th><th>Situação</th><th>Visível para professores</th><th>Calendário escolar</th><th></th></tr></thead>
           <tbody>${periodos.length ? periodos.map((p) => {
             const sem = p.semanas_letivas;
             const sit = hoje < p.inicio ? '<span class="chip chip-aviso">Futuro</span>' : hoje > p.fim ? '<span class="chip chip-neu">Encerrado</span>' : '<span class="chip chip-ok">Em andamento</span>';
             return `<tr><td><strong>${periodoRotulo(p)}</strong></td><td class="num">${ddmmaaaa(parseData(p.inicio))}</td><td class="num">${ddmmaaaa(parseData(p.fim))}</td>
-              <td class="num">${sem}</td><td>${sit}</td><td><div class="acoes"><button class="btn btn-s" data-editar="${p.id}">Editar</button></div></td></tr>`;
-          }).join('') : '<tr><td colspan="6" class="muted">Nenhum período cadastrado. Crie o primeiro ao lado.</td></tr>'}</tbody>
+              <td class="num">${sem}</td><td>${sit}</td>
+              <td><label class="check"><input type="checkbox" data-visivel="${p.id}"${p.visivel_professor ? ' checked' : ''}> ${p.visivel_professor ? 'Sim' : 'Não'}</label></td>
+              <td><div class="acoes">${p.calendario_em
+                ? `<button class="btn btn-s" data-cal-ver="${p.id}">Ver</button><button class="btn btn-s" data-cal-enviar="${p.id}">Trocar</button><button class="btn btn-s" data-cal-remover="${p.id}">Remover</button>`
+                : `<button class="btn btn-s" data-cal-enviar="${p.id}">Enviar PDF</button>`}</div></td>
+              <td><div class="acoes"><button class="btn btn-s" data-editar="${p.id}">Editar</button></div></td></tr>`;
+          }).join('') : '<tr><td colspan="8" class="muted">Nenhum período cadastrado. Crie o primeiro ao lado.</td></tr>'}</tbody>
         </table>
+        <input type="file" id="cal-arquivo" accept="application/pdf,.pdf" hidden>
+        <p class="muted" style="margin:0;padding:10px 16px 14px;font-size:12.5px">O professor só vê os períodos marcados como visíveis (o seu atual e, se quiser, o anterior). Período novo começa oculto: deixe assim enquanto o horário estiver em montagem. O calendário em PDF (até 10 MB) fica guardado de forma privada e só quem tem login baixa.</p>
       </section>
-      <form class="card estreita painel" id="novo">
+      <form class="card painel" id="novo" style="max-width:640px">
         <h2>Novo período</h2>
         <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
           <div class="campo"><label for="ano">Ano</label><input id="ano" type="number" min="2020" max="2100" required value="${new Date().getFullYear() + 1}"></div>
@@ -58,7 +67,7 @@ async function abaPeriodos() {
           <div class="campo"><label for="fim">Fim</label><input id="fim" type="date" required></div>
           <div class="campo"><label for="semletivas">Semanas letivas</label><input id="semletivas" type="number" min="1" max="30" value="20" required></div>
         </div>
-        <span class="muted" style="font-size:12.5px">Semanas letivas: usadas no contador de aulas da graduação (aulas por semana × semanas). Não aceita período repetido nem início depois do fim. A disponibilidade dos professores começa vazia em cada período.</span>
+        <span class="muted" style="font-size:12.5px">Semanas letivas: usadas no contador de aulas da graduação (aulas por semana × semanas). Não aceita período repetido nem início depois do fim. A disponibilidade dos professores começa vazia em cada período (ou use Turmas > Copiar de outro período). O período novo começa oculto para os professores.</span>
         <div id="msg" class="oculto" role="alert"></div>
         <button class="btn btn-p" type="submit">Criar período</button>
       </form>
@@ -75,6 +84,27 @@ async function abaPeriodos() {
       abrir('periodos');
     } catch (e) { mostrarErro(form.querySelector('#msg'), e); }
   });
+
+  area.querySelectorAll('[data-visivel]').forEach((c) => c.addEventListener('change', async () => {
+    try { await q(sb.from('periodos').update({ visivel_professor: c.checked }).eq('id', c.dataset.visivel)); avisar(c.checked ? 'Período liberado para os professores.' : 'Período ocultado dos professores.'); abrir('periodos'); }
+    catch (e) { c.checked = !c.checked; avisar(e.message, 'erro'); }
+  }));
+  const arq = area.querySelector('#cal-arquivo');
+  let calPeriodo = null;
+  area.querySelectorAll('[data-cal-enviar]').forEach((b) => b.addEventListener('click', () => { calPeriodo = b.dataset.calEnviar; arq.click(); }));
+  arq.addEventListener('change', async () => {
+    const f = arq.files[0]; arq.value = '';
+    if (!f || !calPeriodo) return;
+    try { await enviarCalendario(calPeriodo, f); avisar('Calendário escolar publicado.'); abrir('periodos'); }
+    catch (e) { avisar(e.message, 'erro'); }
+  });
+  area.querySelectorAll('[data-cal-ver]').forEach((b) => b.addEventListener('click', async () => {
+    try { await abrirCalendario(b.dataset.calVer); } catch (e) { avisar(e.message, 'erro'); }
+  }));
+  area.querySelectorAll('[data-cal-remover]').forEach((b) => b.addEventListener('click', async () => {
+    if (!(await confirmar('Remover calendário?', 'Os professores deixam de ver o PDF deste período.', 'Remover', true))) return;
+    try { await removerCalendario(b.dataset.calRemover); avisar('Calendário removido.'); abrir('periodos'); } catch (e) { avisar(e.message, 'erro'); }
+  }));
 
   area.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => {
     const p = periodos.find((x) => x.id === b.dataset.editar);
@@ -99,16 +129,19 @@ async function abaPeriodos() {
 async function abaFeriados() {
   const periodos = await listarPeriodos();
   area.innerHTML = `
-    <div class="alerta alerta-aviso">Cadastrar um dia não letivo nunca apaga nem move aulas já salvas. Se houver encontro de pós nesse dia, ele aparece na Auditoria para você remarcar. A graduação não é afetada (é compensada aos sábados).</div>
+    <div class="alerta alerta-aviso">Cadastrar um dia não letivo nunca apaga nem move aulas já salvas. Se houver encontro de pós nesse dia, ele aparece na Auditoria para você remarcar. Para a graduação, informe o sábado da reposição: os professores são avisados e a tabela de dias letivos já mostra a troca.</div>
     <div class="duas-colunas" style="margin-top:16px">
       <section class="card larga">
         <div class="barra" style="border-bottom:1px solid var(--linha)"><div class="campo" style="width:160px"><label for="per">Período letivo</label><select id="per"></select></div></div>
         <div class="tabela-box" id="lista"></div>
+        <div class="barra" id="conferencia" style="border-top:1px solid var(--linha);align-items:center"></div>
       </section>
       <form class="card estreita painel" id="novo">
         <h2>Novo dia não letivo</h2>
         <div class="campo"><label for="data">Data</label><input id="data" type="date" required></div>
         <div class="campo"><label for="motivo">Motivo</label><input id="motivo" placeholder="Ex.: Recesso escolar" required></div>
+        <div class="campo"><label for="repo">Reposição no sábado (opcional)</label><input id="repo" type="date">
+          <span class="muted" style="font-size:12px">Só para dia de segunda a sexta. Vale para todas as turmas de graduação; a pós não muda.</span></div>
         <div id="msg" class="oculto" role="alert"></div>
         <button class="btn btn-p" type="submit">Adicionar</button>
       </form>
@@ -121,18 +154,46 @@ async function abaFeriados() {
   async function listar() {
     const dias = await q(sb.from('v_dias_nao_letivos').select('*').eq('periodo_id', periodoId).order('data'));
     area.querySelector('#lista').innerHTML = `<table>
-      <thead><tr><th>Data</th><th>Motivo</th><th>Encontros de pós nesse dia</th><th></th></tr></thead>
+      <thead><tr><th>Data</th><th>Motivo</th><th>Reposição (graduação)</th><th>Encontros de pós nesse dia</th><th></th></tr></thead>
       <tbody>${dias.length ? dias.map((d) => {
         const dt = parseData(d.data);
         return `<tr><td class="num">${DIAS[diaIso(dt)].slice(0, 3)} ${ddmmaaaa(dt)}</td><td>${esc(d.motivo)}</td>
+          <td>${diaIso(dt) > 5 ? '<span class="muted">—</span>' : d.reposicao_em ? `<span class="chip chip-red">Sáb. ${ddmmaaaa(parseData(d.reposicao_em))}</span>` : '<span class="muted">Sem reposição</span>'}</td>
           <td>${d.encontros_afetados ? `<span class="chip chip-erro">${d.encontros_afetados} para remarcar</span>` : '<span class="muted">Nenhum</span>'}</td>
-          <td><div class="acoes"><button class="btn btn-s" data-remover="${d.id}">Remover</button></div></td></tr>`;
-      }).join('') : '<tr><td colspan="4" class="muted">Nenhum dia não letivo neste período.</td></tr>'}</tbody></table>`;
+          <td><div class="acoes">${diaIso(dt) <= 5 ? `<button class="btn btn-s" data-repo="${d.id}">Reposição</button>` : ''}<button class="btn btn-s" data-remover="${d.id}">Remover</button></div></td></tr>`;
+      }).join('') : '<tr><td colspan="5" class="muted">Nenhum dia não letivo neste período.</td></tr>'}</tbody></table>`;
+    area.querySelectorAll('[data-repo]').forEach((b) => b.addEventListener('click', () => {
+      const d = dias.find((x) => x.id === b.dataset.repo);
+      abrirDialogo({
+        titulo: `Reposição de ${ddmmaaaa(parseData(d.data))}`,
+        corpo: `<div class="campo"><label for="r-data">Sábado da reposição</label><input id="r-data" type="date" value="${d.reposicao_em || ''}"></div>
+          <span class="muted" style="font-size:12.5px">Deixe em branco para tirar a reposição.</span>`,
+        aoConfirmar: async (dlg) => {
+          await q(sb.from('dias_nao_letivos').update({ reposicao_em: dlg.querySelector('#r-data').value || null }).eq('id', d.id));
+          avisar('Reposição atualizada.'); listar();
+        },
+      });
+    }));
+    conferir();
     area.querySelectorAll('[data-remover]').forEach((b) => b.addEventListener('click', async () => {
       if (!(await confirmar('Remover dia não letivo?', 'O dia volta a ser letivo para a pós.', 'Remover'))) return;
       try { await q(sb.from('dias_nao_letivos').delete().eq('id', b.dataset.remover)); avisar('Dia removido.'); listar(); }
       catch (e) { avisar(e.message, 'erro'); }
     }));
+  }
+  // conferência: dias letivos de cada dia da semana x semanas letivas
+  async function conferir() {
+    const box = area.querySelector('#conferencia');
+    const p = periodos.find((x) => x.id === periodoId);
+    try {
+      const c = contarPorDia(await carregarDiasLetivos(periodoId));
+      const alvo = p.semanas_letivas;
+      box.innerHTML = `<strong style="font-size:13px">Dias letivos</strong>${[1, 2, 3, 4, 5].map((d) => {
+        const falta = alvo - c[d];
+        return `<span class="chip ${falta > 0 ? 'chip-aviso' : 'chip-ok'}" title="${falta > 0 ? `Falta${falta > 1 ? 'm' : ''} ${falta} reposição(ões)` : 'Completo'}">${DIAS[d].slice(0, 3)} ${c[d]} de ${alvo}</span>`;
+      }).join('')}<button type="button" class="btn btn-s" id="ver-dias" style="margin-left:auto">Ver tabela</button>`;
+      box.querySelector('#ver-dias').addEventListener('click', () => abrirDiasLetivos(p));
+    } catch (e) { box.innerHTML = `<span class="muted">${esc(e.message)}</span>`; }
   }
   sel.addEventListener('change', () => { periodoId = sel.value; listar(); });
   form.addEventListener('submit', async (ev) => {
@@ -142,7 +203,9 @@ async function abaFeriados() {
       if (!form.data.value) throw new Error('Informe a data.');
       if (form.data.value < p.inicio || form.data.value > p.fim) throw new Error(`A data precisa estar dentro do período ${periodoRotulo(p)}.`);
       if (!form.motivo.value.trim()) throw new Error('Informe o motivo.');
-      await q(sb.from('dias_nao_letivos').insert({ periodo_id: periodoId, data: form.data.value, motivo: form.motivo.value.trim() }));
+      const repo = form.repo.value || null;
+      if (repo && diaIso(parseData(form.data.value)) > 5) throw new Error('Reposição só vale para dia de segunda a sexta.');
+      await q(sb.from('dias_nao_letivos').insert({ periodo_id: periodoId, data: form.data.value, motivo: form.motivo.value.trim(), reposicao_em: repo }));
       form.reset(); avisar('Dia não letivo adicionado.'); listar();
     } catch (e) { mostrarErro(form.querySelector('#msg'), e); }
   });
