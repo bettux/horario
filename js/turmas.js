@@ -1,5 +1,5 @@
 import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js';
-import { sb, q } from './supabase.js';
+import { sb, q, rpc } from './supabase.js';
 import { esc } from './util.js';
 
 const { main } = await iniciarPagina('turmas');
@@ -16,11 +16,12 @@ main.innerHTML = `
   <div id="msg" class="oculto" role="alert"></div>
   <section class="card tabela-box" id="lista"><p class="carregando" style="padding:16px">Carregando…</p></section>`;
 
-const [periodos, cursos, matrizes, comps] = await Promise.all([
+const [periodos, cursos, matrizes, comps, profs] = await Promise.all([
   listarPeriodos(),
   q(sb.from('cursos').select('*')),
   q(sb.from('matrizes').select('*').order('nome')),
-  q(sb.from('componentes').select('id, matriz_id, semestre, nome, carga, modalidade, regra').eq('ativo', true).order('ordem')),
+  q(sb.from('componentes').select('id, matriz_id, semestre, nome, carga, modalidade, regra, professor').eq('ativo', true).order('ordem')),
+  q(sb.from('professores').select('id, nome, ativo').order('nome')),
 ]);
 const sel = main.querySelector('#per');
 let periodoId = preencherPeriodos(sel, periodos);
@@ -51,9 +52,10 @@ async function listar() {
         <td>${pos ? '<span class="muted">—</span>' : t.subturmas.map((s) => esc(s.nome)).sort().join(', ') || '<span class="chip chip-erro">nenhuma</span>'}</td>
         <td class="num">${n}</td>
         <td>${usada ? `<span class="chip chip-ok">${pos ? t.ofertas_pos.length + ' módulo(s)' : t.aulas.length + ' aula(s) na grade'}</span>` : '<span class="chip chip-aviso">Sem alocação</span>'}</td>
-        <td><div class="acoes"><button class="btn btn-s" data-editar="${t.id}">Editar</button>${usada ? '' : `<button class="btn btn-s" data-excluir="${t.id}">Excluir</button>`}</div></td></tr>`;
+        <td><div class="acoes">${pos ? '' : `<button class="btn btn-s" data-profs="${t.id}">Professores</button>`}<button class="btn btn-s" data-editar="${t.id}">Editar</button>${usada ? '' : `<button class="btn btn-s" data-excluir="${t.id}">Excluir</button>`}</div></td></tr>`;
     }).join('') : '<tr><td colspan="7" class="muted">Nenhuma turma neste período.</td></tr>'}</tbody></table>`;
 
+  main.querySelectorAll('[data-profs]').forEach((b) => b.addEventListener('click', () => dialogoProfessores(turmas.find((t) => t.id === b.dataset.profs))));
   main.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => dialogoTurma(turmas.find((t) => t.id === b.dataset.editar))));
   main.querySelectorAll('[data-excluir]').forEach((b) => b.addEventListener('click', async () => {
     if (!(await confirmar('Excluir turma?', 'A turma não tem aulas alocadas. As subturmas também serão excluídas.', 'Excluir', true))) return;
@@ -138,4 +140,51 @@ function dialogoTurma(t) {
   selMat.addEventListener('change', atualizar);
   selSem.addEventListener('change', atualizar);
   atualizar(); desenharSubs();
+}
+
+// ---------- Matéria -> Professor de cada subturma ----------
+async function dialogoProfessores(t) {
+  const subs = [...t.subturmas].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }));
+  const lista = comps.filter((c) => c.matriz_id === t.matriz_id && c.semestre === t.semestre && c.professor !== 'sem');
+  const m = matrizes.find((x) => x.id === t.matriz_id);
+  if (!subs.length) { avisar('Cadastre ao menos uma subturma (Editar) antes de definir os professores.', 'aviso'); return; }
+  const ids = subs.map((s) => s.id);
+  const [atuais, aulas] = await Promise.all([
+    q(sb.from('atribuicoes').select('subturma_id, componente_id, professor_id').in('subturma_id', ids)),
+    q(sb.from('aulas').select('componente_id, aula_professores(professor_id), aula_subturmas(subturma_id)').eq('turma_id', t.id)),
+  ]);
+  // valor gravado; se não houver, sugere o professor que já está na grade
+  const valor = (sid, cid) => {
+    const a = atuais.find((x) => x.subturma_id === sid && x.componente_id === cid);
+    if (a) return { id: a.professor_id, sugerido: false };
+    const g = aulas.find((x) => x.componente_id === cid && x.aula_subturmas.some((y) => y.subturma_id === sid) && x.aula_professores.length);
+    return { id: g?.aula_professores[0].professor_id || '', sugerido: !!g };
+  };
+  const opcoes = (sel) => `<option value="">—</option>` + profs.filter((p) => p.ativo || p.id === sel)
+    .map((p) => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.nome)}${p.ativo ? '' : ' (inativo)'}</option>`).join('');
+  let algumSugerido = false;
+  const linhas = lista.map((c) => `<tr><td>${esc(c.nome)}${c.modalidade.startsWith('ead') ? ' <span class="chip chip-neu">EAD</span>' : ''}${c.professor === 'opcional' ? ' <span class="muted" style="font-size:12px">(opcional)</span>' : ''}</td>
+    ${subs.map((s) => { const v = valor(s.id, c.id); if (v.sugerido) algumSugerido = true;
+      return `<td><select data-sub="${s.id}" data-comp="${c.id}" aria-label="${esc(c.nome)} ${esc(s.nome)}"${v.sugerido ? ' class="sugerido"' : ''}>${opcoes(v.id)}</select></td>`; }).join('')}
+    ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>` : ''}</tr>`).join('');
+  const corpo = `
+    <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma. Isso não cria aulas na grade; serve de base para montar o horário.</p>
+    ${algumSugerido ? '<p style="margin:0 0 4px;font-size:12.5px;color:var(--aviso-chip)">Os campos com fundo azul foram sugeridos a partir das aulas que já estão na grade. Confira e salve.</p>' : ''}
+    <div class="tabela-box" style="max-height:60vh;overflow:auto"><table style="min-width:${300 + subs.length * 200}px">
+      <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:190px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? '<th></th>' : ''}</tr></thead>
+      <tbody>${linhas || `<tr><td colspan="${subs.length + 2}" class="muted">A matriz não tem matérias com professor neste semestre.</td></tr>`}</tbody></table></div>`;
+  const dlg = abrirDialogo({
+    titulo: `Professores das matérias · ${t.identificacao}`, corpo, confirmar: 'Salvar professores',
+    aoConfirmar: async (d) => {
+      const itens = [...d.querySelectorAll('select[data-sub]')].filter((x) => x.value).map((x) => ({ subturma_id: x.dataset.sub, componente_id: x.dataset.comp, professor_id: x.value }));
+      await rpc('salvar_atribuicoes', { p_turma: t.id, p_itens: itens });
+      avisar(`Professores da turma ${t.identificacao} salvos.`);
+    },
+  });
+  dlg.style.width = 'min(980px, calc(100vw - 32px))';
+  dlg.querySelectorAll('[data-igual]').forEach((b) => b.addEventListener('click', () => {
+    const sels = [...dlg.querySelectorAll(`select[data-comp="${b.dataset.igual}"]`)];
+    sels.slice(1).forEach((x) => { x.value = sels[0].value; x.classList.remove('sugerido'); });
+  }));
+  dlg.querySelectorAll('select[data-sub]').forEach((x) => x.addEventListener('change', () => x.classList.remove('sugerido')));
 }

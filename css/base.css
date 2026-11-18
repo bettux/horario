@@ -303,3 +303,4 @@ button.pmod:hover { border-color: var(--borda-forte); }
   .rel-grade tr, .rel-tab tr, .rel-aula { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+select.sugerido { background: var(--aviso-fundo); border-color: var(--aviso-borda); }
