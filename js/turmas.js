@@ -10,6 +10,7 @@ main.innerHTML = `
     <p class="sub">A turma traz automaticamente todos os componentes que a matriz prevê para o semestre.</p></div>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
       <div class="campo" style="width:150px"><label for="per">Período letivo</label><select id="per"></select></div>
+      <button class="btn" id="copiar">Copiar de outro período</button>
       <button class="btn btn-p" id="nova">Nova turma</button>
     </div>
   </header>
@@ -33,10 +34,12 @@ const rotuloMatriz = (m) => { const c = cursos.find((x) => x.id === m.curso_id);
 if (!periodoId) {
   main.querySelector('#lista').innerHTML = '<p class="muted" style="padding:16px">Crie um período em Configurações acadêmicas antes de cadastrar turmas.</p>';
   main.querySelector('#nova').disabled = true;
+  main.querySelector('#copiar').disabled = true;
 } else {
   listar();
 }
 main.querySelector('#nova').addEventListener('click', () => dialogoTurma());
+main.querySelector('#copiar').addEventListener('click', dialogoCopiar);
 
 async function listar() {
   const turmas = await q(sb.from('turmas').select('*, subturmas(id, nome), aulas(id), ofertas_pos(id)').eq('periodo_id', periodoId));
@@ -187,4 +190,38 @@ async function dialogoProfessores(t) {
     sels.slice(1).forEach((x) => { x.value = sels[0].value; x.classList.remove('sugerido'); });
   }));
   dlg.querySelectorAll('select[data-sub]').forEach((x) => x.addEventListener('change', () => x.classList.remove('sugerido')));
+}
+
+// ---------- Copiar de outro período ----------
+function dialogoCopiar() {
+  const atual = periodos.find((p) => p.id === periodoId);
+  const outros = periodos.filter((p) => p.id !== periodoId).sort((a, b) => b.inicio.localeCompare(a.inicio));
+  if (!outros.length) { avisar('Não há outro período cadastrado para copiar.', 'aviso'); return; }
+  const anterior = outros.find((p) => p.inicio < atual.inicio) || outros[0];
+  const rot = (p) => `${p.ano}/${p.semestre}`;
+  abrirDialogo({
+    titulo: `Copiar para ${rot(atual)}`, confirmar: 'Copiar',
+    corpo: `
+      <div class="campo"><label for="cp-origem">Copiar a graduação do período</label>
+        <select id="cp-origem">${outros.map((p) => `<option value="${p.id}"${p.id === anterior.id ? ' selected' : ''}>${rot(p)}</option>`).join('')}</select></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+        <label class="check"><input type="checkbox" checked disabled> Turmas e subturmas (mesmo curso, semestre e identificação)</label>
+        <label class="check"><input type="checkbox" checked disabled> Professores das matérias</label>
+        <label class="check"><input type="checkbox" id="cp-disp" checked> Disponibilidade dos professores</label>
+        <label class="check"><input type="checkbox" id="cp-aulas"> Aulas da grade (horário)</label>
+      </div>
+      <p class="muted" style="margin:6px 0 0;font-size:12.5px;line-height:1.55">Nada que já existe em ${rot(atual)} é apagado ou trocado: turmas iguais são aproveitadas,
+      a disponibilidade só é copiada para quem ainda não tem, e a grade só vai para turmas que ainda estão sem aulas.
+      Se a grade copiada quebrar alguma regra, nada é gravado e o sistema mostra o motivo. A pós não é copiada.
+      Depois de copiar, ajuste o código das turmas (ex.: CTSADS126N1 → CTSADS127N1) em Editar.</p>`,
+    aoConfirmar: async (d) => {
+      const r = await rpc('copiar_periodo', { p_origem: d.querySelector('#cp-origem').value, p_destino: periodoId,
+        p_disponibilidades: d.querySelector('#cp-disp').checked, p_aulas: d.querySelector('#cp-aulas').checked });
+      const partes = [`${r.turmas_criadas} turma(s) criada(s)`, r.turmas_existentes ? `${r.turmas_existentes} já existia(m)` : '',
+        `${r.atribuicoes} professor(es) de matéria`, d.querySelector('#cp-disp').checked ? `${r.disponibilidades} horário(s) de disponibilidade` : '',
+        d.querySelector('#cp-aulas').checked ? `${r.aulas} aula(s) na grade` : ''].filter(Boolean);
+      avisar(`Cópia feita: ${partes.join(', ')}.`);
+      listar();
+    },
+  });
 }
