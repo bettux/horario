@@ -18,6 +18,7 @@ export function htmlDiasLetivos(linhas, periodo) {
   const max = Math.max(0, ...cols.map((c) => c.length));
   const celula = (l) => {
     if (!l) return '<td></td>';
+    if (l.tipo === 'compensacao') return `<td class="dl-comp"><span class="num"><strong>${ddmm(parseData(l.data))}</strong> sáb.</span><span>compensação</span></td>`;
     if (!l.reposicao_de) return `<td class="num">${ddmm(parseData(l.data))}</td>`;
     return `<td class="dl-rep"><span class="num"><strong>${ddmm(parseData(l.data))}</strong> sáb.</span><span>reposição de ${ddmm(parseData(l.reposicao_de))}</span></td>`;
   };
@@ -29,7 +30,7 @@ export function htmlDiasLetivos(linhas, periodo) {
       <tbody>${Array.from({ length: max }, (_, i) => `<tr>${cols.map((c) => celula(c[i])).join('')}</tr>`).join('')}</tbody>
       <tfoot><tr>${cols.map((c) => `<td><strong>${c.length}</strong> ${c.length === 1 ? "dia" : "dias"}</td>`).join('')}</tr></tfoot>
     </table></div>
-    <p class="muted" style="margin:0;font-size:12px">Quando um dia não tem aula, a data do sábado de reposição aparece na coluna do dia que ele repõe.</p>`;
+    <p class="muted" style="margin:0;font-size:12px">Sábados em rosa repõem um dia sem aula; em azul, são sábados de compensação do calendário, com as aulas do dia da coluna.</p>`;
 }
 
 // janela com a tabela e o botão de imprimir

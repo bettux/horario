@@ -315,6 +315,9 @@ select.sugerido { background: var(--aviso-fundo); border-color: var(--aviso-bord
 .dl-rep { background: var(--vermelho-fundo); }
 .dl-rep span { display: block; }
 .dl-rep span + span { font-size: 11.5px; color: var(--vermelho-escuro); }
+.dl-comp { background: #E8F1FB; }
+.dl-comp span { display: block; }
+.dl-comp span + span { font-size: 11.5px; color: #1F5A99; }
 .reposicoes { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
 .reposicoes strong { font-size: 14px; }
 .acoes-rodape { display: flex; flex-wrap: wrap; gap: 10px; }

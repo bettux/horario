@@ -94,10 +94,12 @@ function desenhar(periodo, dados, dias) {
 
   // reposições que afetam este professor (dias da semana em que ele tem graduação)
   const meusDias = new Set(dados.graduacao.map((a) => a.dia_semana));
-  const reps = dias.filter((l) => l.reposicao_de && meusDias.has(l.dia_semana));
+  const reps = dias.filter((l) => (l.reposicao_de || l.tipo === 'compensacao') && meusDias.has(l.dia_semana));
   const reposicoes = reps.length ? `
-    <section class="card reposicoes"><strong>Reposições do período</strong>
-      ${reps.map((l) => `<span>As aulas de ${DIAS[l.dia_semana].toLowerCase()} ${ddmm(parseData(l.reposicao_de))}${l.motivo ? ` (${esc(l.motivo)})` : ''} serão repostas no <strong>sábado ${ddmm(parseData(l.data))}</strong>.</span>`).join('')}
+    <section class="card reposicoes"><strong>Sábados letivos do período</strong>
+      ${reps.map((l) => (l.tipo === 'compensacao'
+        ? `<span>No <strong>sábado ${ddmm(parseData(l.data))}</strong> haverá as aulas de ${DIAS[l.dia_semana].toLowerCase()} (compensação do calendário${l.motivo ? `: ${esc(l.motivo)}` : ''}).</span>`
+        : `<span>As aulas de ${DIAS[l.dia_semana].toLowerCase()} ${ddmm(parseData(l.reposicao_de))}${l.motivo ? ` (${esc(l.motivo)})` : ''} serão repostas no <strong>sábado ${ddmm(parseData(l.data))}</strong>.</span>`)).join('')}
     </section>` : '';
 
   const ativ = dados.atividades || [];

@@ -129,12 +129,19 @@ async function abaPeriodos() {
 async function abaFeriados() {
   const periodos = await listarPeriodos();
   area.innerHTML = `
-    <div class="alerta alerta-aviso">Cadastrar um dia não letivo nunca apaga nem move aulas já salvas. Se houver encontro de pós nesse dia, ele aparece na Auditoria para você remarcar. Para a graduação, informe o sábado da reposição: os professores são avisados e a tabela de dias letivos já mostra a troca.</div>
+    <div class="alerta alerta-aviso">Cadastrar um dia não letivo nunca apaga nem move aulas já salvas. Se houver encontro de pós nesse dia, ele aparece na Auditoria para você remarcar. Para a graduação, informe o sábado da reposição: os professores são avisados e a tabela de dias letivos já mostra a troca. Se o calendário tiver menos semanas do que o necessário, use os sábados de compensação, mais abaixo.</div>
     <div class="duas-colunas" style="margin-top:16px">
       <section class="card larga">
         <div class="barra" style="border-bottom:1px solid var(--linha)"><div class="campo" style="width:160px"><label for="per">Período letivo</label><select id="per"></select></div></div>
         <div class="tabela-box" id="lista"></div>
         <div class="barra" id="conferencia" style="border-top:1px solid var(--linha);align-items:center"></div>
+      </section>
+      <section class="card larga">
+        <div class="barra" style="border-bottom:1px solid var(--linha);justify-content:space-between;align-items:center">
+          <div><h2 style="font-size:15px;margin:0">Sábados de compensação</h2>
+          <span class="muted" style="font-size:12.5px">Sábado letivo sem feriado, para completar as semanas do calendário. Vale para todas as turmas de graduação.</span></div>
+          <button class="btn" type="button" id="nova-comp">Adicionar sábado</button></div>
+        <div class="tabela-box" id="lista-comp"></div>
       </section>
       <form class="card estreita painel" id="novo">
         <h2>Novo dia não letivo</h2>
@@ -175,12 +182,44 @@ async function abaFeriados() {
       });
     }));
     conferir();
+    listarComp();
     area.querySelectorAll('[data-remover]').forEach((b) => b.addEventListener('click', async () => {
       if (!(await confirmar('Remover dia não letivo?', 'O dia volta a ser letivo para a pós.', 'Remover'))) return;
       try { await q(sb.from('dias_nao_letivos').delete().eq('id', b.dataset.remover)); avisar('Dia removido.'); listar(); }
       catch (e) { avisar(e.message, 'erro'); }
     }));
   }
+  // sábados de compensação (sem feriado)
+  async function listarComp() {
+    const comp = await q(sb.from('compensacoes').select('*').eq('periodo_id', periodoId).order('data'));
+    area.querySelector('#lista-comp').innerHTML = `<table>
+      <thead><tr><th>Sábado</th><th>Vale como</th><th>Motivo</th><th></th></tr></thead>
+      <tbody>${comp.length ? comp.map((c) => `<tr><td class="num">Sáb ${ddmmaaaa(parseData(c.data))}</td><td><span class="chip chip-ok">${DIAS[c.dia_semana]}</span></td>
+        <td>${esc(c.motivo || '—')}</td><td><div class="acoes"><button class="btn btn-s" data-comp-remover="${c.id}">Remover</button></div></td></tr>`).join('')
+        : '<tr><td colspan="4" class="muted">Nenhum sábado de compensação neste período.</td></tr>'}</tbody></table>`;
+    area.querySelectorAll('[data-comp-remover]').forEach((b) => b.addEventListener('click', async () => {
+      if (!(await confirmar('Remover sábado de compensação?', 'O sábado deixa de contar como dia letivo.', 'Remover', true))) return;
+      try { await q(sb.from('compensacoes').delete().eq('id', b.dataset.compRemover)); avisar('Sábado de compensação removido.'); listar(); }
+      catch (e) { avisar(e.message, 'erro'); }
+    }));
+  }
+  area.querySelector('#nova-comp').addEventListener('click', () => {
+    abrirDialogo({
+      titulo: 'Sábado de compensação', confirmar: 'Adicionar',
+      corpo: `<div class="linha-form">
+          <div class="campo"><label for="c-data">Sábado</label><input id="c-data" type="date" required></div>
+          <div class="campo"><label for="c-dia">Vale como</label><select id="c-dia">${[1, 2, 3, 4, 5].map((d) => `<option value="${d}">${DIAS[d]}</option>`).join('')}</select></div></div>
+        <div class="campo"><label for="c-motivo">Motivo (opcional)</label><input id="c-motivo" placeholder="Ex.: Compensação do calendário 2027"></div>
+        <span class="muted" style="font-size:12.5px">As turmas de graduação têm, nesse sábado, as aulas do dia escolhido. Os professores são avisados em Minhas aulas.</span>`,
+      aoConfirmar: async (dlg) => {
+        const data = dlg.querySelector('#c-data').value;
+        if (!data) throw new Error('Escolha o sábado.');
+        await q(sb.from('compensacoes').insert({ periodo_id: periodoId, data, dia_semana: Number(dlg.querySelector('#c-dia').value), motivo: dlg.querySelector('#c-motivo').value.trim() || null }));
+        avisar('Sábado de compensação adicionado.'); listar();
+      },
+    });
+  });
+
   // conferência: dias letivos de cada dia da semana x semanas letivas
   async function conferir() {
     const box = area.querySelector('#conferencia');

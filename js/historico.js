@@ -7,7 +7,7 @@ const { main } = await iniciarPagina('historico');
 
 const TIPOS = {
   grade: 'Grade da graduação', pos: 'Pós-graduação', atribuicoes: 'Professores das matérias', disponibilidade: 'Disponibilidade',
-  turmas: 'Turmas', subturmas: 'Subturmas', periodos: 'Períodos', dias_nao_letivos: 'Dias não letivos', professores: 'Professores',
+  turmas: 'Turmas', subturmas: 'Subturmas', periodos: 'Períodos', dias_nao_letivos: 'Dias não letivos', compensacoes: 'Sábados de compensação', professores: 'Professores',
   atividades: 'Atividades complementares', componentes: 'Matrizes (componentes)', copia: 'Cópia de período',
 };
 const CAMPOS = {
@@ -15,7 +15,7 @@ const CAMPOS = {
   semanas_letivas: 'Semanas letivas', visivel_professor: 'Visível para professores', calendario_em: 'Calendário', motivo: 'Motivo',
   reposicao_em: 'Reposição', data: 'Data', descricao: 'Descrição', quantidade: 'Quantidade', frequencia: 'Frequência', tipo: 'Tipo',
   observacao: 'Observação', sigla: 'Sigla', carga: 'Carga', modalidade: 'Modalidade', regra: 'Regra', semestre: 'Semestre', ordem: 'Ordem',
-  professor: 'Professor', ano: 'Ano',
+  professor: 'Professor', ano: 'Ano', dia_semana: 'Vale como',
 };
 const POR_PAGINA = 100;
 
@@ -100,9 +100,14 @@ function valor(k, v) {
   if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return ddmmaaaa(parseData(v));
   if (k === 'calendario_em') return 'enviado';
+  if (k === 'dia_semana') return DIAS[v] || String(v);
   return String(v);
 }
 function detalheLinha(h) {
+  if (h.tipo === 'compensacoes' && h.acao !== 'alterou') {
+    const r = h.depois || h.antes || {};
+    return [`<li>Vale como <b>${esc(DIAS[r.dia_semana] || '?')}</b>${r.motivo ? ' · ' + esc(r.motivo) : ''}</li>`];
+  }
   if (h.acao !== 'alterou') return [];
   const ign = (k) => k === 'id' || k.endsWith('_id') || k === 'auth_user_id' || k === 'criado_em' || k === 'chave';
   return Object.keys({ ...(h.antes || {}), ...(h.depois || {}) }).filter((k) => !ign(k) && chave(h.antes?.[k]) !== chave(h.depois?.[k]))
