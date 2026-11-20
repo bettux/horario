@@ -47,6 +47,7 @@ const sigla = (c) => c?.sigla || c?.nome || '?';
 let periodo = null, cursoId = null, semanas = 20;
 let turmas = [], comps = [], aulas = [], atribs = [], pico = new Map(), ambientes = ambientesTodos;
 let filtro = '';
+let destaque = null; // professor destacado no painel
 
 $m('#curso').innerHTML = cursos.map((c) => `<option value="${c.id}">${esc(c.sigla ? `${c.sigla} · ${c.nome}` : c.nome)}</option>`).join('');
 try { const c = localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) $m('#curso').value = c; } catch { /* ignora */ }
@@ -114,7 +115,7 @@ function blocoHtml(a, t, extra = '') {
   const nomes = a.professores.map(primeiro).join(' + ') || 'sem professor';
   const subsNomes = t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
   const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambiente_id ? ' · ' + (ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}`;
-  return `<button type="button" class="mh-bloco" draggable="true" data-aula="${a.id}" title="${esc(titulo)} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
+  return `<button type="button" class="mh-bloco" draggable="true" data-aula="${a.id}" data-profs="${a.professores.join(' ')}" title="${esc(titulo)} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
     <span class="mh-sig">${esc(sigla(c))}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
 }
 
@@ -168,7 +169,7 @@ function turmaHtml(t) {
     <div class="mh-faltam"><span class="muted">Faltam:</span>${chips.length ? chips.map((ch) => {
       const tn = ch.prof ? tons(prof(ch.prof)?.cor) : null;
       const subsTxt = ch.subs.length === subs.length && subs.length > 1 ? '' : ` (${ch.subs.map((s) => s.nome).join('+')})`;
-      return `<span class="mh-chip" draggable="true" data-chip='${esc(JSON.stringify({ turma: t.id, comp: ch.comp.id, prof: ch.prof, subs: ch.subs.map((s) => s.id) }))}'
+      return `<span class="mh-chip" draggable="true" data-chip-prof="${ch.prof || ''}" data-chip='${esc(JSON.stringify({ turma: t.id, comp: ch.comp.id, prof: ch.prof, subs: ch.subs.map((s) => s.id) }))}'
         title="${esc(ch.comp.nome)}${subsTxt} · ${ch.prof ? esc(pnome(ch.prof)) : 'sem professor definido'} · faltam ${ch.falta} por semana"
         style="${tn ? `background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}` : ''}">${esc(sigla(ch.comp))}${esc(subsTxt)} · ${ch.prof ? esc(primeiro(ch.prof)) : '<em>sem professor</em>'} · ${ch.falta}</span>`;
     }).join('') : '<span class="chip chip-ok">nada pendente</span>'}</div>
@@ -180,10 +181,15 @@ function desenharProfs() {
   const lista = profsTodos.filter((p) => p.ativo && (!filtro || p.nome.toLowerCase().includes(filtro)));
   $m('#profs').innerHTML = lista.map((p) => {
     const c = pico.get(p.id) || 0;
-    return `<div class="mh-prof" draggable="true" data-prof="${p.id}" title="${esc(p.nome)}">
+    return `<div class="mh-prof${destaque === p.id ? ' mh-prof-ativo' : ''}" draggable="true" data-prof="${p.id}" title="${esc(p.nome)} · clique para destacar as aulas dele">
       <span class="mh-dot" style="background:${tons(p.cor).borda}"></span><span class="mh-pn">${esc(p.nome)}</span>
       <span class="mh-pc${c > 40 ? ' mh-pc-alto' : c >= 36 ? ' mh-pc-medio' : ''}">${c ? `${c}/40` : '—'}</span></div>`;
   }).join('') || '<p class="muted" style="margin:0;font-size:12.5px">Nenhum professor encontrado.</p>';
+  $m('#profs').querySelectorAll('[data-prof]').forEach((el) => el.addEventListener('click', () => {
+    destaque = destaque === el.dataset.prof ? null : el.dataset.prof;
+    desenharProfs();
+    aplicarDestaque();
+  }));
   $m('#profs').querySelectorAll('[data-prof]').forEach((el) => el.addEventListener('dragstart', (ev) => {
     ev.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'prof', id: el.dataset.prof }));
     ev.dataTransfer.effectAllowed = 'copy';
@@ -210,6 +216,7 @@ function desenhar() {
       else dialogoAula(pos, origem);
     });
   });
+  aplicarDestaque();
   area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
     const t = turmas.find((x) => x.id === b.dataset.limpar);
     const n = aulas.filter((a) => a.turma_id === t.id).length;
@@ -232,6 +239,26 @@ function desenhar() {
     dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
   }));
 }
+
+// ---------- destacar professor ----------
+function aplicarDestaque() {
+  const area = $m('#turmas');
+  area.classList.toggle('mh-com-destaque', !!destaque);
+  area.querySelectorAll('[data-aula]').forEach((el) => el.classList.toggle('mh-dest', !!destaque && el.dataset.profs.split(' ').includes(destaque)));
+  area.querySelectorAll('[data-chip-prof]').forEach((el) => el.classList.toggle('mh-dest', !!destaque && el.dataset.chipProf === destaque));
+  let faixa = $m('#destaque');
+  if (!destaque) { faixa?.remove(); return; }
+  const n = aulas.filter((a) => a.professores.includes(destaque) && turmas.some((t) => t.id === a.turma_id));
+  const qtd = n.reduce((x, a) => x + a.quantidade, 0);
+  const pend = [...area.querySelectorAll('[data-chip-prof]')].filter((el) => el.dataset.chipProf === destaque).length;
+  if (!faixa) { faixa = document.createElement('div'); faixa.id = 'destaque'; faixa.className = 'mh-faixa-dest'; area.closest('.mh').before(faixa); }
+  const tn = tons(prof(destaque)?.cor);
+  faixa.style.borderColor = tn.borda; faixa.style.background = tn.fundo; faixa.style.color = tn.texto;
+  faixa.innerHTML = `<span><strong>${esc(pnome(destaque))}</strong> neste curso: ${qtd} aula${qtd === 1 ? '' : 's'} por semana${pend ? ` · ${pend} matéria${pend === 1 ? '' : 's'} ainda pendente${pend === 1 ? '' : 's'}` : ''}. Maior carga no período: ${pico.get(destaque) || 0}/40.</span>
+    <button type="button" class="btn btn-s" id="limpar-dest">Tirar destaque</button>`;
+  faixa.querySelector('#limpar-dest').addEventListener('click', () => { destaque = null; desenharProfs(); aplicarDestaque(); });
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && destaque && !document.querySelector('dialog[open]')) { destaque = null; desenharProfs(); aplicarDestaque(); } });
 
 // ---------- mover aula arrastando o bloco ----------
 async function moverAula(id, pos) {

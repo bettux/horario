@@ -376,3 +376,11 @@ select.sugerido { background: var(--aviso-fundo); border-color: var(--aviso-bord
 .mh-sub { font-size: 11px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mh-so { font-size: 10.5px; font-weight: 700; }
 @media (max-width: 1100px) { .mh { flex-direction: column-reverse; } .mh-painel { position: static; flex-basis: auto; width: 100%; max-height: 260px; } }
+/* destacar professor */
+.mh-prof { cursor: pointer; }
+.mh-prof-ativo { background: var(--superficie-2); outline: 2px solid var(--grafite); outline-offset: -2px; font-weight: 600; }
+.mh-com-destaque .mh-bloco:not(.mh-dest), .mh-com-destaque .mh-chip:not(.mh-dest) { opacity: 0.22; filter: grayscale(0.6); }
+.mh-com-destaque .mh-bloco.mh-dest { box-shadow: 0 0 0 2px var(--grafite); z-index: 2; }
+.mh-com-destaque .mh-chip.mh-dest { box-shadow: 0 0 0 2px var(--grafite); }
+.mh-faixa-dest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 8px 12px; margin-bottom: 12px;
+  border: 1px solid; border-left-width: 5px; border-radius: 8px; font-size: 13.5px; }
