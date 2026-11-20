@@ -213,6 +213,7 @@ function desenhar() {
       let origem; try { origem = JSON.parse(ev.dataTransfer.getData('text/plain')); } catch { return; }
       const pos = { turma: el.dataset.turma, dia: Number(el.dataset.dia), slot: Number(el.dataset.slot), sub: el.dataset.sub };
       if (origem.tipo === 'aula') moverAula(origem.id, pos);
+      else if (origem.tipo === 'prof') lancarDireto(pos, origem.id).then((ok) => { if (!ok) dialogoAula(pos, origem); });
       else dialogoAula(pos, origem);
     });
   });
@@ -259,6 +260,33 @@ function aplicarDestaque() {
   faixa.querySelector('#limpar-dest').addEventListener('click', () => { destaque = null; desenharProfs(); aplicarDestaque(); });
 }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && destaque && !document.querySelector('dialog[open]')) { destaque = null; desenharProfs(); aplicarDestaque(); } });
+
+// ---------- lançamento direto: professor com uma só matéria pendente ----------
+// devolve true se lançou (ou tentou e mostrou o motivo); false para abrir a janela
+async function lancarDireto(pos, profId) {
+  const t = turmas.find((x) => x.id === pos.turma);
+  if (!t) return false;
+  const subIds = pos.sub === 'todas' ? t.subturmas.map((s) => s.id) : [pos.sub];
+  const subsAlvo = t.subturmas.filter((s) => subIds.includes(s.id));
+  const cands = compsDaTurma(t).filter((c) => subsAlvo.every((s) => atribDe(s.id, c.id) === profId) && subsAlvo.some((s) => falta(t, c, s) > 0));
+  if (cands.length !== 1) return false;
+  const c = cands[0];
+  const L = pos.dia === 6 ? HSAB : HS;
+  const i = L.findIndex((h) => h.numero === pos.slot);
+  const livres = i < 0 ? 1 : L.length - i;
+  const qtd = Math.max(1, Math.min(Math.max(...subsAlvo.map((s) => falta(t, c, s))), livres));
+  const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
+  try {
+    await rpc('gravar_aula', {
+      p_aula: null, p_turma: t.id, p_componente: c.id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: qtd,
+      p_subturmas: subIds, p_professores: [profId], p_ambiente: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null,
+    });
+    $m('#msg').classList.add('oculto');
+    avisar(`${c.nome} lançada: ${qtd} aula${qtd > 1 ? 's' : ''} com ${primeiro(profId)}. Clique na aula para ajustar.`);
+  } catch (e) { mostrarErro($m('#msg'), e); }
+  await carregar();
+  return true;
+}
 
 // ---------- mover aula arrastando o bloco ----------
 async function moverAula(id, pos) {
