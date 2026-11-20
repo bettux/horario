@@ -162,7 +162,9 @@ function turmaHtml(t) {
 
   return `<section class="card mh-turma" data-turma-card="${t.id}">
     <div class="mh-tcab"><strong>${esc(cur?.sigla || '')} · ${t.semestre}º semestre · ${esc(t.identificacao)}</strong>
-      <span class="chip ${comp.ok === comp.total && comp.total ? 'chip-ok' : 'chip-neu'}">${comp.ok} de ${comp.total} completas</span></div>
+      <span style="display:flex;gap:8px;align-items:center">
+        <span class="chip ${comp.ok === comp.total && comp.total ? 'chip-ok' : 'chip-neu'}">${comp.ok} de ${comp.total} completas</span>
+        ${aulas.some((a) => a.turma_id === t.id) ? `<button type="button" class="btn btn-s" data-limpar="${t.id}">Remover todas as aulas</button>` : ''}</span></div>
     <div class="mh-faltam"><span class="muted">Faltam:</span>${chips.length ? chips.map((ch) => {
       const tn = ch.prof ? tons(prof(ch.prof)?.cor) : null;
       const subsTxt = ch.subs.length === subs.length && subs.length > 1 ? '' : ` (${ch.subs.map((s) => s.nome).join('+')})`;
@@ -206,6 +208,14 @@ function desenhar() {
       dialogoAula({ turma: el.dataset.turma, dia: Number(el.dataset.dia), slot: Number(el.dataset.slot), sub: el.dataset.sub }, origem);
     });
   });
+  area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
+    const t = turmas.find((x) => x.id === b.dataset.limpar);
+    const n = aulas.filter((a) => a.turma_id === t.id).length;
+    const nome = `${cursos.find((c) => c.id === cursoId)?.sigla || ''} ${t.semestre}º semestre · ${t.identificacao}`;
+    if (!(await confirmar(`Remover todas as aulas?`, `Isso apaga as ${n} aula(s) da grade da turma ${nome}. A lista de professores das matérias é mantida, e o histórico guarda o que foi apagado.`, 'Remover todas', true))) return;
+    try { const r = await rpc('limpar_turma', { p_turma: t.id }); avisar(`${r} aula(s) removida(s) de ${nome}.`); await carregar(); }
+    catch (e) { mostrarErro($m('#msg'), e); }
+  }));
   area.querySelectorAll('[data-aula]').forEach((el) => el.addEventListener('click', () => {
     const a = aulas.find((x) => x.id === el.dataset.aula);
     dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
