@@ -114,7 +114,7 @@ function blocoHtml(a, t, extra = '') {
   const nomes = a.professores.map(primeiro).join(' + ') || 'sem professor';
   const subsNomes = t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
   const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambiente_id ? ' · ' + (ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}`;
-  return `<button type="button" class="mh-bloco" data-aula="${a.id}" title="${esc(titulo)}" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
+  return `<button type="button" class="mh-bloco" draggable="true" data-aula="${a.id}" title="${esc(titulo)} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
     <span class="mh-sig">${esc(sigla(c))}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
 }
 
@@ -205,7 +205,9 @@ function desenhar() {
     el.addEventListener('drop', (ev) => {
       ev.preventDefault(); el.classList.remove('mh-alvo');
       let origem; try { origem = JSON.parse(ev.dataTransfer.getData('text/plain')); } catch { return; }
-      dialogoAula({ turma: el.dataset.turma, dia: Number(el.dataset.dia), slot: Number(el.dataset.slot), sub: el.dataset.sub }, origem);
+      const pos = { turma: el.dataset.turma, dia: Number(el.dataset.dia), slot: Number(el.dataset.slot), sub: el.dataset.sub };
+      if (origem.tipo === 'aula') moverAula(origem.id, pos);
+      else dialogoAula(pos, origem);
     });
   });
   area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
@@ -217,10 +219,39 @@ function desenhar() {
     try { const r = await rpc('limpar_turma', { p_turma: t.id }); avisar(`${r} aula(s) removida(s) de ${nome}.`); await carregar(); }
     catch (e) { mostrarErro($m('#msg'), e); }
   }));
+  area.querySelectorAll('[data-aula]').forEach((el) => {
+    el.addEventListener('dragstart', (ev) => {
+      ev.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'aula', id: el.dataset.aula }));
+      ev.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => el.classList.add('mh-arrastando'), 0);
+    });
+    el.addEventListener('dragend', () => el.classList.remove('mh-arrastando'));
+  });
   area.querySelectorAll('[data-aula]').forEach((el) => el.addEventListener('click', () => {
     const a = aulas.find((x) => x.id === el.dataset.aula);
     dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
   }));
+}
+
+// ---------- mover aula arrastando o bloco ----------
+async function moverAula(id, pos) {
+  const a = aulas.find((x) => x.id === id);
+  if (!a) return;
+  if (pos.turma !== a.turma_id) { avisar('Para levar a aula para outra turma, lance-a de novo na turma certa.', 'aviso'); return; }
+  const t = turmas.find((x) => x.id === a.turma_id);
+  // aula da turma inteira continua da turma inteira; aula de uma subturma vai para a subturma onde foi solta
+  const subs = pos.sub === 'todas' || a.subturmas.length > 1 ? a.subturmas : [pos.sub];
+  if (pos.dia === a.dia_semana && pos.slot === a.inicio && subs.join() === a.subturmas.join()) return;
+  const c = comps.find((x) => x.id === a.componente_id);
+  try {
+    await rpc('gravar_aula', {
+      p_aula: a.id, p_turma: t.id, p_componente: a.componente_id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: a.quantidade,
+      p_subturmas: subs, p_professores: a.professores, p_ambiente: ambientes.find((x) => x.id === a.ambiente_id)?.nome || null,
+    });
+    $m('#msg').classList.add('oculto');
+    avisar(`${c?.nome || 'Aula'} movida para ${DIAS[pos.dia].toLowerCase()}.`);
+  } catch (e) { mostrarErro($m('#msg'), e); }
+  await carregar();
 }
 
 // ---------- janela de lançar / editar ----------
