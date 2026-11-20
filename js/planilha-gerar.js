@@ -134,6 +134,13 @@ export async function gerarPlanilha(ExcelJS, modelo, d) {
       r.grad.get(k).q += a.quantidade;
     }
   }
+  for (const x of d.assincronas || []) {
+    const t = turmas.get(x.turma_id), c = comps.get(x.componente_id);
+    if (!t || !c) continue;
+    const k = `${t.id}|${c.id}|assincrona`;
+    const r = reg(x.professor_id);
+    if (!r.grad.has(k)) r.grad.set(k, { t, c, subs: [], q: (Number(c.carga) || 0) / semanas, temSubturmas: false });
+  }
   for (const o of d.ofertas) if (o.professor_id && o.encontros?.length) reg(o.professor_id).pos.push(o);
   for (const at of d.atividades) {
     if (at.frequencia !== 'semanal') { avisos.push(`${profs.get(at.professor_id)?.nome}: a atividade "${at.descricao}" é por período e não entra na planilha (só valores semanais).`); continue; }

@@ -109,15 +109,25 @@ async function dadosDoPeriodo(periodo) {
     q(sb.from('atividades').select('professor_id, descricao, quantidade, frequencia, tipo, observacao').eq('periodo_id', periodo.id)),
   ]);
   const ids = aulas.map((a) => a.id);
-  const [ap, as, ambientes] = await Promise.all([
+  const subIds = turmas.flatMap((t) => (t.subturmas || []).map((s) => ({ id: s.id, turma_id: t.id })));
+  const [ap, as, ambientes, atrib] = await Promise.all([
     ids.length ? q(sb.from('aula_professores').select('aula_id, professor_id').in('aula_id', ids)) : [],
     ids.length ? q(sb.from('aula_subturmas').select('aula_id, subturma_id').in('aula_id', ids)) : [],
     q(sb.from('ambientes').select('id, nome')),
+    subIds.length ? q(sb.from('atribuicoes').select('subturma_id, componente_id, professor_id').in('subturma_id', subIds.map((s) => s.id))) : [],
   ]);
+  // EAD assíncrona não ocupa horário: vem da lista Matéria -> Professor (uma por turma e professor)
+  const assinc = new Map();
+  for (const x of atrib) {
+    const c = componentes.find((k) => k.id === x.componente_id);
+    if (c?.modalidade !== 'ead_assincrona') continue;
+    const turma_id = subIds.find((s) => s.id === x.subturma_id)?.turma_id;
+    assinc.set(`${x.professor_id}|${turma_id}|${c.id}`, { professor_id: x.professor_id, turma_id, componente_id: c.id });
+  }
   const amb = new Map(ambientes.map((a) => [a.id, a.nome]));
   return {
     periodo,
-    cursos, matrizes, componentes, horarios, professores, atividades,
+    cursos, matrizes, componentes, horarios, professores, atividades, assincronas: [...assinc.values()],
     turmas: turmas.map((t) => ({ ...t, subturmas: t.subturmas || [] })),
     aulas: aulas.map((a) => ({
       turma_id: a.turma_id, componente_id: a.componente_id, dia_semana: a.dia_semana, inicio: a.inicio, quantidade: a.quantidade,
