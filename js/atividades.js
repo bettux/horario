@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611221335';
-import { sb, q, rpc } from './supabase.js?v=202611221335';
-import { esc, parseData, ddmm } from './util.js?v=202611221335';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611221356';
+import { sb, q, rpc } from './supabase.js?v=202611221356';
+import { esc, parseData, ddmm } from './util.js?v=202611221356';
 
 const { main } = await iniciarPagina('atividades');
 

@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611221335';
-import { sb, q, rpc } from './supabase.js?v=202611221335';
-import { esc, DIAS } from './util.js?v=202611221335';
-import { tons } from './cores.js?v=202611221335';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611221356';
+import { sb, q, rpc } from './supabase.js?v=202611221356';
+import { esc, DIAS } from './util.js?v=202611221356';
+import { tons } from './cores.js?v=202611221356';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -379,26 +379,27 @@ async function segundoProfessor(aulaId, profId) {
 }
 
 // ---------- horários impossíveis durante o arraste ----------
-function motivoBloqueio(profs, dia, slot, ignorar) {
+function motivoBloqueio(profs, dia, slot, ignorar, compId = null) {
+  const livreDisp = ehExtensao(comps.find((c) => c.id === compId)); // Extensão: qualquer dia e horário
   const L = dia === 6 ? HSAB : HS;
   const h = L.find((x) => x.numero === slot);
   for (const p of profs) {
     const nome = primeiro(p);
     if (posDias.get(p)?.has(dia)) return `${nome} tem pós neste dia`;
-    if (h && !disps.some((d) => d.professor_id === p && d.dia_semana === dia && d.inicio <= h.inicio && d.fim >= h.fim)) return `${nome} não está disponível neste horário`;
+    if (h && !livreDisp && !disps.some((d) => d.professor_id === p && d.dia_semana === dia && d.inicio <= h.inicio && d.fim >= h.fim)) return `${nome} não está disponível neste horário`;
     const outra = [...aulas, ...proposta].find((a) => a.id !== ignorar && a.professores.includes(p) && a.dia_semana === dia && slot >= a.inicio && slot < a.inicio + a.quantidade);
     if (outra) return `${nome} já tem aula neste horário${turmas.some((t) => t.id === outra.turma_id) ? '' : ' (em turma de outro curso)'}`;
   }
   return '';
 }
 function marcarBloqueios(origem) {
-  let profs = [], ignorar = null;
+  let profs = [], ignorar = null, compId = null;
   if (origem.tipo === 'prof') profs = [origem.id];
-  else if (origem.tipo === 'chip' && origem.prof) profs = [origem.prof];
-  else if (origem.tipo === 'aula' || origem.tipo === 'prop') { const a = [...aulas, ...proposta].find((x) => x.id === origem.id); profs = a?.professores || []; ignorar = a?.id; }
+  else if (origem.tipo === 'chip' && origem.prof) { profs = [origem.prof]; compId = origem.comp; }
+  else if (origem.tipo === 'aula' || origem.tipo === 'prop') { const a = [...aulas, ...proposta].find((x) => x.id === origem.id); profs = a?.professores || []; ignorar = a?.id; compId = a?.componente_id; }
   if (!profs.length) return;
   $m('#turmas').querySelectorAll('.mh-slot').forEach((el) => {
-    const m = motivoBloqueio(profs, Number(el.dataset.dia), Number(el.dataset.slot), ignorar);
+    const m = motivoBloqueio(profs, Number(el.dataset.dia), Number(el.dataset.slot), ignorar, compId);
     if (m) { el.classList.add('mh-bloq'); el.dataset.motivo = m; el.title = m; }
   });
 }
@@ -583,7 +584,7 @@ function gerarProposta() {
     if (!h) return false;
     for (const p of dm.profs) {
       if (posDias.get(p)?.has(d)) return false;
-      if (!disps.some((x) => x.professor_id === p && x.dia_semana === d && x.inicio <= h.inicio && x.fim >= h.fim)) return false;
+      if (!ehExtensao(dm.c) && !disps.some((x) => x.professor_id === p && x.dia_semana === d && x.inicio <= h.inicio && x.fim >= h.fim)) return false;
       if (ocupadas.some((a) => a.professores.includes(p) && a.dia_semana === d && slot >= a.inicio && slot < a.inicio + a.quantidade)) return false;
     }
     return !ocupadas.some((a) => a.turma_id === dm.t.id && a.dia_semana === d && slot >= a.inicio && slot < a.inicio + a.quantidade && a.subturmas.some((s) => dm.subs.includes(s)));

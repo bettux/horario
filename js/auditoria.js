@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221335';
-import { rpc } from './supabase.js?v=202611221335';
-import { esc } from './util.js?v=202611221335';
-import { carregarAnalise } from './analise.js?v=202611221335';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221356';
+import { rpc } from './supabase.js?v=202611221356';
+import { esc } from './util.js?v=202611221356';
+import { carregarAnalise } from './analise.js?v=202611221356';
 
 const { main } = await iniciarPagina('auditoria');
 

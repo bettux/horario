@@ -1,8 +1,8 @@
-import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611221335';
-import { sb, q, rpc } from './supabase.js?v=202611221335';
-import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611221335';
-import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611221335';
-import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611221335';
+import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611221356';
+import { sb, q, rpc } from './supabase.js?v=202611221356';
+import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611221356';
+import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611221356';
+import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611221356';
 
 const { main } = await iniciarPagina('configuracoes');
 
