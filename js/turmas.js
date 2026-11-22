@@ -152,10 +152,13 @@ async function dialogoProfessores(t) {
   const m = matrizes.find((x) => x.id === t.matriz_id);
   if (!subs.length) { avisar('Cadastre ao menos uma subturma (Editar) antes de definir os professores.', 'aviso'); return; }
   const ids = subs.map((s) => s.id);
-  const [atuais, aulas] = await Promise.all([
+  const [atuais, aulas, conjs] = await Promise.all([
     q(sb.from('atribuicoes').select('subturma_id, componente_id, professor_id').in('subturma_id', ids)),
     q(sb.from('aulas').select('componente_id, aula_professores(professor_id), aula_subturmas(subturma_id)').eq('turma_id', t.id)),
+    q(sb.from('turma_conjuntas').select('componente_id, aulas').eq('turma_id', t.id)),
   ]);
+  const conjDe = (cid) => conjs.find((x) => x.componente_id === cid)?.aulas || 0;
+  const porSemana = (c) => (c.regra === 'pi_extensao' ? 2 : Math.ceil((Number(c.carga) || 0) / (periodos.find((p) => p.id === t.periodo_id)?.semanas_letivas || 20)));
   // valor gravado; se não houver, sugere o professor que já está na grade
   const valor = (sid, cid) => {
     const a = atuais.find((x) => x.subturma_id === sid && x.componente_id === cid);
@@ -169,18 +172,24 @@ async function dialogoProfessores(t) {
   const linhas = lista.map((c) => `<tr><td>${esc(c.nome)}${c.modalidade.startsWith('ead') ? ' <span class="chip chip-neu">EAD</span>' : ''}${c.professor === 'opcional' ? ' <span class="muted" style="font-size:12px">(opcional)</span>' : ''}</td>
     ${subs.map((s) => { const v = valor(s.id, c.id); if (v.sugerido) algumSugerido = true;
       return `<td><select data-sub="${s.id}" data-comp="${c.id}" aria-label="${esc(c.nome)} ${esc(s.nome)}"${v.sugerido ? ' class="sugerido"' : ''}>${opcoes(v.id)}</select></td>`; }).join('')}
-    ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>` : ''}</tr>`).join('');
+    ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>
+      <td>${c.modalidade === 'ead_assincrona' ? '<span class="muted">—</span>' : `<input type="number" min="0" max="${porSemana(c)}" value="${conjDe(c.id)}" data-conj="${c.id}" style="width:64px" aria-label="Aulas conjuntas por semana de ${esc(c.nome)}"> <span class="muted" style="font-size:12px">de ${porSemana(c)}</span>`}</td>` : ''}</tr>`).join('');
   const corpo = `
-    <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma. Isso não cria aulas na grade; serve de base para montar o horário.</p>
+    <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma${subs.length > 1 ? ` e quantas aulas por semana são da turma inteira (${subs.map((s) => esc(s.nome)).join('+')} juntas; 0 = separadas, o normal)` : ''}. Vale só para este semestre. Isso não cria aulas na grade; serve de base para montar o horário.</p>
     ${algumSugerido ? '<p style="margin:0 0 4px;font-size:12.5px;color:var(--aviso-chip)">Os campos com fundo azul foram sugeridos a partir das aulas que já estão na grade. Confira e salve.</p>' : ''}
     <div class="tabela-box" style="max-height:60vh;overflow:auto"><table style="min-width:${300 + subs.length * 200}px">
-      <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:190px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? '<th></th>' : ''}</tr></thead>
-      <tbody>${linhas || `<tr><td colspan="${subs.length + 2}" class="muted">A matriz não tem matérias com professor neste semestre.</td></tr>`}</tbody></table></div>`;
+      <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:190px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? `<th></th><th title="Aulas por semana com ${subs.map((s) => esc(s.nome)).join(' e ')} juntas. 0 = separadas.">${subs.map((s) => esc(s.nome)).join('+')} juntas / semana</th>` : ''}</tr></thead>
+      <tbody>${linhas || `<tr><td colspan="${subs.length + 3}" class="muted">A matriz não tem matérias com professor neste semestre.</td></tr>`}</tbody></table></div>`;
   const dlg = abrirDialogo({
     titulo: `Professores das matérias · ${t.identificacao}`, corpo, confirmar: 'Salvar professores',
     aoConfirmar: async (d) => {
       const itens = [...d.querySelectorAll('select[data-sub]')].filter((x) => x.value).map((x) => ({ subturma_id: x.dataset.sub, componente_id: x.dataset.comp, professor_id: x.value }));
       await rpc('salvar_atribuicoes', { p_turma: t.id, p_itens: itens });
+      const conjNovos = [...d.querySelectorAll('[data-conj]')].map((x) => ({ turma_id: t.id, componente_id: x.dataset.conj, aulas: Math.max(0, Math.min(10, +x.value || 0)) }));
+      const zerar = conjNovos.filter((x) => !x.aulas).map((x) => x.componente_id);
+      if (zerar.length) await q(sb.from('turma_conjuntas').delete().eq('turma_id', t.id).in('componente_id', zerar));
+      const gravar = conjNovos.filter((x) => x.aulas);
+      if (gravar.length) await q(sb.from('turma_conjuntas').upsert(gravar, { onConflict: 'turma_id,componente_id' }));
       avisar(`Professores da turma ${t.identificacao} salvos.`);
     },
   });

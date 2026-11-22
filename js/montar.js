@@ -58,6 +58,7 @@ let destaque = null; // professor destacado no painel
 let disps = [], posDias = new Map(); // disponibilidade e dias com pós (para apagar horários impossíveis)
 let arrastando = null; // o que está sendo arrastado agora
 const pilha = []; // ações para desfazer
+let conjuntas = new Map(); // turma|componente -> aulas por semana com T1+T2 juntas (definido por semestre)
 let proposta = []; // aulas sugeridas pelo preenchimento automático (ainda não gravadas)
 let naoCoube = [];
 
@@ -73,7 +74,7 @@ async function carregar() {
   const mats = matrizes.filter((m) => m.curso_id === cursoId).map((m) => m.id);
   const [ts, cs, au, carga] = await Promise.all([
     mats.length ? q(sb.from('turmas').select('id, matriz_id, semestre, identificacao, subturmas(id, nome)').eq('periodo_id', periodoId).gt('semestre', 0).in('matriz_id', mats)) : [],
-    mats.length ? q(sb.from('componentes').select('id, matriz_id, semestre, nome, sigla, carga, modalidade, regra, professor, ordem, aulas_conjuntas').in('matriz_id', mats).eq('ativo', true).order('ordem')) : [],
+    mats.length ? q(sb.from('componentes').select('id, matriz_id, semestre, nome, sigla, carga, modalidade, regra, professor, ordem').in('matriz_id', mats).eq('ativo', true).order('ordem')) : [],
     q(sb.from('v_aulas_horario').select('id, turma_id, componente_id, dia_semana, inicio, quantidade, ambiente_id').eq('periodo_id', periodoId)),
     rpc('carga_todos', { p_periodo: periodoId }),
   ]);
@@ -88,13 +89,15 @@ async function carregar() {
     .sort((a, b) => a.semestre - b.semestre || a.identificacao.localeCompare(b.identificacao, 'pt-BR', { numeric: true }));
   comps = cs;
   const ids = au.map((a) => a.id), subsIds = turmas.flatMap((t) => t.subturmas.map((s) => s.id));
-  const [ap, as, at] = await Promise.all([
+  const [ap, as, at, tc] = await Promise.all([
     ids.length ? q(sb.from('aula_professores').select('aula_id, professor_id').in('aula_id', ids)) : [],
     ids.length ? q(sb.from('aula_subturmas').select('aula_id, subturma_id').in('aula_id', ids)) : [],
     subsIds.length ? q(sb.from('atribuicoes').select('subturma_id, componente_id, professor_id').in('subturma_id', subsIds)) : [],
+    turmas.length ? q(sb.from('turma_conjuntas').select('turma_id, componente_id, aulas').in('turma_id', turmas.map((t) => t.id))) : [],
   ]);
   aulas = au.map((a) => ({ ...a, professores: ap.filter((x) => x.aula_id === a.id).map((x) => x.professor_id), subturmas: as.filter((x) => x.aula_id === a.id).map((x) => x.subturma_id) }));
   atribs = at;
+  conjuntas = new Map(tc.map((x) => [`${x.turma_id}|${x.componente_id}`, x.aulas]));
   pico = new Map();
   for (const c of carga) pico.set(c.professor_id, Math.max(pico.get(c.professor_id) || 0, Number(c.total)));
   desenhar();
@@ -104,10 +107,10 @@ async function carregar() {
 function alvo(c) { return c.regra === 'pi_extensao' ? 2 : Math.ceil((Number(c.carga) || 0) / semanas); }
 function lancadas(t, cId, sId) { return aulas.filter((a) => a.turma_id === t.id && a.componente_id === cId && a.subturmas.includes(sId)).reduce((n, a) => n + a.quantidade, 0); }
 const falta = (t, c, s) => Math.max(0, alvo(c) - lancadas(t, c.id, s.id));
-// aulas conjuntas (turma inteira) previstas na matriz e quanto ainda falta delas
+// aulas conjuntas (turma inteira) definidas para a turma no semestre e quanto ainda falta delas
 function conjFalta(t, c) {
   if (t.subturmas.length < 2) return 0;
-  const alvoC = Math.min(Number(c.aulas_conjuntas) || 0, alvo(c));
+  const alvoC = Math.min(conjuntas.get(`${t.id}|${c.id}`) || 0, alvo(c));
   const lanc = aulas.filter((a) => a.turma_id === t.id && a.componente_id === c.id && t.subturmas.every((s) => a.subturmas.includes(s.id))).reduce((n, a) => n + a.quantidade, 0);
   return Math.max(0, Math.min(alvoC - lanc, ...t.subturmas.map((s) => falta(t, c, s))));
 }

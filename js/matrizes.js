@@ -67,17 +67,16 @@ async function carregarComponentes() {
     </div>
     ${ehPos ? '' : `<div class="abas" role="tablist" style="padding:0 16px">${semestres.map((s) => `<button class="aba" role="tab" data-s="${s}" aria-selected="${s === semestreAtual}">${s}º semestre</button>`).join('')}</div>`}
     <div class="tabela-box"><table>
-      <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th>${ehPos ? '' : '<th>T1+T2 juntas</th>'}<th>Regra</th><th>Professor</th><th></th></tr></thead>
+      <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th><th>Regra</th><th>Professor</th><th></th></tr></thead>
       <tbody>${lista.length ? lista.map((c) => `<tr class="${c.ativo ? '' : 'inativo'}">
         <td>${esc(c.nome)}${c.ativo ? '' : ' <span class="chip chip-neu">inativo</span>'}</td>
         <td class="muted">${esc(c.sigla || '')}</td>
         <td>${c.modalidade === 'presencial' || c.modalidade === 'pos' ? MODALIDADES[c.modalidade] : `<span class="chip chip-aviso">${MODALIDADES[c.modalidade]}</span>`}</td>
         <td class="num" style="text-align:right">${c.carga ?? '—'}${c.carga != null ? unidade : ''}</td>
-        ${ehPos ? '' : `<td>${Number(c.aulas_conjuntas) > 0 ? `<span class="chip chip-ok">${c.aulas_conjuntas} por semana</span>` : '<span class="muted">separadas</span>'}</td>`}
         <td>${c.regra === 'pi_extensao' ? '<span class="chip chip-red">PI / Extensão</span>' : '<span class="muted">Normal</span>'}</td>
         <td>${PROFESSOR[c.professor]}</td>
         <td><div class="acoes"><button class="btn btn-s" data-editar="${c.id}">Editar</button></div></td></tr>`).join('')
-        : `<tr><td colspan="${ehPos ? 7 : 8}" class="muted">Nenhum componente neste semestre.</td></tr>`}</tbody></table></div>
+        : '<tr><td colspan="7" class="muted">Nenhum componente neste semestre.</td></tr>'}</tbody></table></div>
     <div class="barra" style="justify-content:space-between;border-top:1px solid var(--linha)">
       <span class="muted" style="font-size:13px">Componente já usado em aulas não pode ser excluído, só desativado.</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${ehPos ? '' : '<button class="btn" id="novo-sem">Novo semestre</button>'}<button class="btn btn-p" id="novo-comp">Adicionar componente</button></div>
@@ -109,8 +108,6 @@ function dialogoComponente(c, ehPos) {
         <div class="campo"><label for="c-carga">${ehPos ? 'Horas' : 'Aulas no semestre'}</label><input id="c-carga" type="number" min="0" value="${c.carga ?? ''}"></div>
       </div>
       <div class="campo"><label for="c-mod">Modalidade</label><select id="c-mod">${opcoes(MODALIDADES, c.modalidade)}</select></div>
-      ${ehPos ? '' : `<div class="campo"><label for="c-conj">Aulas conjuntas por semana (T1+T2 juntas)</label><input id="c-conj" type="number" min="0" max="10" value="${c.aulas_conjuntas ?? 0}">
-        <span class="muted" style="font-size:12px">0 = T1 e T2 sempre separadas (o normal). Ex.: 5 aulas por semana com 3 teóricas juntas e 2 práticas separadas: coloque 3. Todas juntas: coloque o total.</span></div>`}
       <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
         <div class="campo"><label for="c-prof">Professor</label><select id="c-prof">${opcoes(PROFESSOR, c.professor)}</select></div>
         <div class="campo"><label for="c-regra">Regra</label><select id="c-regra">${opcoes(REGRA, c.regra)}</select></div>
@@ -120,7 +117,7 @@ function dialogoComponente(c, ehPos) {
       const v = (id) => dlg.querySelector(id).value;
       const dados = {
         matriz_id: matrizAtual, nome: v('#c-nome').trim(), sigla: v('#c-sigla').trim() || null, semestre: ehPos ? 0 : +v('#c-sem'), ordem: +v('#c-ordem') || 0,
-        carga: v('#c-carga') === '' ? null : +v('#c-carga'), modalidade: v('#c-mod'), aulas_conjuntas: ehPos ? 0 : Math.max(0, +v('#c-conj') || 0), professor: v('#c-prof'), regra: v('#c-regra'),
+        carga: v('#c-carga') === '' ? null : +v('#c-carga'), modalidade: v('#c-mod'), professor: v('#c-prof'), regra: v('#c-regra'),
         ativo: dlg.querySelector('#c-ativo').checked,
       };
       if (!dados.nome) throw new Error('Informe o nome.');
