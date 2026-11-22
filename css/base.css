@@ -384,3 +384,18 @@ select.sugerido { background: var(--aviso-fundo); border-color: var(--aviso-bord
 .mh-com-destaque .mh-chip.mh-dest { box-shadow: 0 0 0 2px var(--grafite); }
 .mh-faixa-dest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 8px 12px; margin-bottom: 12px;
   border: 1px solid; border-left-width: 5px; border-radius: 8px; font-size: 13.5px; }
+/* 3b: ações, presença, lixeira, bloqueios e arraste por toque */
+.mh-acoes { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-bottom: 12px; min-height: 30px; }
+.mh-acoes #desfazer { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mh-presenca { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-2); }
+.mh-ponto { width: 8px; height: 8px; border-radius: 50%; background: #1F8A4C; box-shadow: 0 0 0 3px rgba(31, 138, 76, 0.18); }
+.mh-lixeira { display: none; position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; padding: 16px 36px;
+  border: 2px dashed var(--vermelho); border-radius: 14px; background: #fff; color: var(--vermelho-escuro); font-weight: 700; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(20, 22, 26, 0.2); }
+body.mh-arrastando-aula .mh-lixeira { display: block; }
+.mh-lixeira.mh-alvo { background: var(--vermelho); color: #fff; }
+.mh-slot.mh-bloq { background: repeating-linear-gradient(135deg, #ECEDF0 0 6px, #F6F7F9 6px 12px); cursor: not-allowed; }
+.mh-slot.mh-bloq.mh-alvo { border-color: #C2410C; background: repeating-linear-gradient(135deg, #FDE7D9 0 6px, #FFF4EC 6px 12px); }
+.mh-bloco.mh-alvo { outline: 3px solid var(--grafite); outline-offset: 1px; }
+.mh-fantasma { position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none; opacity: 0.9; box-shadow: 0 8px 24px rgba(20, 22, 26, 0.25); }
+.mh-prof, .mh-chip, .mh-bloco { touch-action: pan-y; -webkit-user-select: none; user-select: none; }

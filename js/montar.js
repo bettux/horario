@@ -5,7 +5,7 @@ import { tons } from './cores.js';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
-const { main } = await iniciarPagina('montar');
+const { perfil, main } = await iniciarPagina('montar');
 
 main.innerHTML = `
   <header class="cabecalho" style="margin-bottom:12px">
@@ -16,7 +16,12 @@ main.innerHTML = `
       <div class="campo" style="width:220px"><label for="curso">Curso</label><select id="curso"></select></div>
     </div>
   </header>
+  <div class="mh-acoes">
+    <span id="presenca" class="mh-presenca"></span>
+    <button type="button" class="btn btn-s" id="desfazer" disabled title="Desfazer a última ação (Ctrl+Z)">Desfazer</button>
+  </div>
   <div id="msg" class="oculto" role="alert"></div>
+  <div id="lixeira" class="mh-lixeira" aria-label="Soltar aqui para remover a aula">Solte aqui para remover a aula</div>
   <div class="mh">
     <div class="mh-turmas" id="turmas"><p class="carregando">Carregando…</p></div>
     <aside class="mh-painel card" aria-label="Professores">
@@ -48,6 +53,9 @@ let periodo = null, cursoId = null, semanas = 20;
 let turmas = [], comps = [], aulas = [], atribs = [], pico = new Map(), ambientes = ambientesTodos;
 let filtro = '';
 let destaque = null; // professor destacado no painel
+let disps = [], posDias = new Map(); // disponibilidade e dias com pós (para apagar horários impossíveis)
+let arrastando = null; // o que está sendo arrastado agora
+const pilha = []; // ações para desfazer
 
 $m('#curso').innerHTML = cursos.map((c) => `<option value="${c.id}">${esc(c.sigla ? `${c.sigla} · ${c.nome}` : c.nome)}</option>`).join('');
 try { const c = localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) $m('#curso').value = c; } catch { /* ignora */ }
@@ -65,6 +73,13 @@ async function carregar() {
     q(sb.from('v_aulas_horario').select('id, turma_id, componente_id, dia_semana, inicio, quantidade, ambiente_id').eq('periodo_id', periodoId)),
     rpc('carga_todos', { p_periodo: periodoId }),
   ]);
+  const [ds, encs] = await Promise.all([
+    q(sb.from('disponibilidades').select('professor_id, dia_semana, inicio, fim').eq('periodo_id', periodoId)),
+    q(sb.from('v_encontros').select('professor_id, dia_semana').eq('periodo_id', periodoId)),
+  ]);
+  disps = ds;
+  posDias = new Map();
+  for (const e of encs) { if (!posDias.has(e.professor_id)) posDias.set(e.professor_id, new Set()); posDias.get(e.professor_id).add(e.dia_semana); }
   turmas = ts.map((t) => ({ ...t, subturmas: [...(t.subturmas || [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true })) }))
     .sort((a, b) => a.semestre - b.semestre || a.identificacao.localeCompare(b.identificacao, 'pt-BR', { numeric: true }));
   comps = cs;
@@ -190,10 +205,7 @@ function desenharProfs() {
     desenharProfs();
     aplicarDestaque();
   }));
-  $m('#profs').querySelectorAll('[data-prof]').forEach((el) => el.addEventListener('dragstart', (ev) => {
-    ev.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'prof', id: el.dataset.prof }));
-    ev.dataTransfer.effectAllowed = 'copy';
-  }));
+  $m('#profs').querySelectorAll('[data-prof]').forEach(ligarArraste);
 }
 
 function desenhar() {
@@ -201,22 +213,8 @@ function desenhar() {
   area.innerHTML = turmas.length ? turmas.map(turmaHtml).join('')
     : '<div class="card" style="padding:20px"><p style="margin:0">Nenhuma turma deste curso no período. Crie em Gestão de turmas (ou use "Copiar de outro período").</p></div>';
   desenharProfs();
-  area.querySelectorAll('[data-chip]').forEach((el) => el.addEventListener('dragstart', (ev) => {
-    ev.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'chip', ...JSON.parse(el.dataset.chip) }));
-    ev.dataTransfer.effectAllowed = 'copy';
-  }));
-  area.querySelectorAll('.mh-slot').forEach((el) => {
-    el.addEventListener('dragover', (ev) => { ev.preventDefault(); el.classList.add('mh-alvo'); });
-    el.addEventListener('dragleave', () => el.classList.remove('mh-alvo'));
-    el.addEventListener('drop', (ev) => {
-      ev.preventDefault(); el.classList.remove('mh-alvo');
-      let origem; try { origem = JSON.parse(ev.dataTransfer.getData('text/plain')); } catch { return; }
-      const pos = { turma: el.dataset.turma, dia: Number(el.dataset.dia), slot: Number(el.dataset.slot), sub: el.dataset.sub };
-      if (origem.tipo === 'aula') moverAula(origem.id, pos);
-      else if (origem.tipo === 'prof') lancarDireto(pos, origem.id).then((ok) => { if (!ok) dialogoAula(pos, origem); });
-      else dialogoAula(pos, origem);
-    });
-  });
+  area.querySelectorAll('[data-chip], [data-aula]').forEach(ligarArraste);
+  area.querySelectorAll('.mh-slot, .mh-bloco').forEach(ligarAlvo);
   aplicarDestaque();
   area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
     const t = turmas.find((x) => x.id === b.dataset.limpar);
@@ -224,18 +222,16 @@ function desenhar() {
     if (!n) { avisar('Esta turma ainda não tem aulas na grade.', 'aviso'); return; }
     const nome = `${cursos.find((c) => c.id === cursoId)?.sigla || ''} ${t.semestre}º semestre · ${t.identificacao}`;
     if (!(await confirmar(`Remover todas as aulas?`, `Isso apaga as ${n} aula(s) da grade da turma ${nome}. A lista de professores das matérias é mantida, e o histórico guarda o que foi apagado.`, 'Remover todas', true))) return;
-    try { const r = await rpc('limpar_turma', { p_turma: t.id }); avisar(`${r} aula(s) removida(s) de ${nome}.`); await carregar(); }
+    const antes = aulas.filter((a) => a.turma_id === t.id).map(snapAula);
+    try {
+      const r = await rpc('limpar_turma', { p_turma: t.id });
+      registrar(`remover todas as aulas de ${nome}`, async () => { for (const x of antes) await gravarSnap(x); });
+      avisar(`${r} aula(s) removida(s) de ${nome}.`); await carregar();
+    }
     catch (e) { mostrarErro($m('#msg'), e); }
   }));
-  area.querySelectorAll('[data-aula]').forEach((el) => {
-    el.addEventListener('dragstart', (ev) => {
-      ev.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'aula', id: el.dataset.aula }));
-      ev.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => el.classList.add('mh-arrastando'), 0);
-    });
-    el.addEventListener('dragend', () => el.classList.remove('mh-arrastando'));
-  });
   area.querySelectorAll('[data-aula]').forEach((el) => el.addEventListener('click', () => {
+    if (Date.now() < semCliqueAte) return;
     const a = aulas.find((x) => x.id === el.dataset.aula);
     dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
   }));
@@ -277,10 +273,11 @@ async function lancarDireto(pos, profId) {
   const qtd = Math.max(1, Math.min(Math.max(...subsAlvo.map((s) => falta(t, c, s))), livres));
   const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
   try {
-    await rpc('gravar_aula', {
+    const id = await rpc('gravar_aula', {
       p_aula: null, p_turma: t.id, p_componente: c.id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: qtd,
       p_subturmas: subIds, p_professores: [profId], p_ambiente: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null,
     });
+    registrar(`lançar ${c.nome}`, () => rpc('remover_aula', { p_aula: id }));
     $m('#msg').classList.add('oculto');
     avisar(`${c.nome} lançada: ${qtd} aula${qtd > 1 ? 's' : ''} com ${primeiro(profId)}. Clique na aula para ajustar.`);
   } catch (e) { mostrarErro($m('#msg'), e); }
@@ -298,16 +295,232 @@ async function moverAula(id, pos) {
   const subs = pos.sub === 'todas' || a.subturmas.length > 1 ? a.subturmas : [pos.sub];
   if (pos.dia === a.dia_semana && pos.slot === a.inicio && subs.join() === a.subturmas.join()) return;
   const c = comps.find((x) => x.id === a.componente_id);
+  const antes = snapAula(a);
   try {
     await rpc('gravar_aula', {
       p_aula: a.id, p_turma: t.id, p_componente: a.componente_id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: a.quantidade,
       p_subturmas: subs, p_professores: a.professores, p_ambiente: ambientes.find((x) => x.id === a.ambiente_id)?.nome || null,
     });
     $m('#msg').classList.add('oculto');
+    registrar(`mover ${c?.nome || 'aula'}`, () => gravarSnap(antes, a.id));
     avisar(`${c?.nome || 'Aula'} movida para ${DIAS[pos.dia].toLowerCase()}.`);
   } catch (e) { mostrarErro($m('#msg'), e); }
   await carregar();
 }
+
+// ---------- desfazer ----------
+function snapAula(a) {
+  return { turma: a.turma_id, comp: a.componente_id, dia: a.dia_semana, inicio: a.inicio, qtd: a.quantidade,
+    subs: [...a.subturmas], profs: [...a.professores], amb: ambientes.find((x) => x.id === a.ambiente_id)?.nome || null };
+}
+function gravarSnap(x, id = null) {
+  return rpc('gravar_aula', { p_aula: id, p_turma: x.turma, p_componente: x.comp, p_dia: x.dia, p_inicio: x.inicio, p_quantidade: x.qtd,
+    p_subturmas: x.subs, p_professores: x.profs, p_ambiente: x.amb });
+}
+function registrar(desc, desfazer) {
+  pilha.push({ desc, desfazer });
+  if (pilha.length > 30) pilha.shift();
+  atualizarDesfazer();
+}
+function atualizarDesfazer() {
+  const b = $m('#desfazer'), ult = pilha[pilha.length - 1];
+  b.disabled = !ult;
+  b.textContent = ult ? `Desfazer: ${ult.desc}` : 'Desfazer';
+}
+async function desfazer() {
+  const it = pilha.pop();
+  atualizarDesfazer();
+  if (!it) return;
+  try { await it.desfazer(); $m('#msg').classList.add('oculto'); avisar(`Desfeito: ${it.desc}.`); }
+  catch (e) { mostrarErro($m('#msg'), e); }
+  await carregar();
+}
+
+// ---------- remover (lixeira e janela) e segundo professor ----------
+async function removerAula(id) {
+  const a = aulas.find((x) => x.id === id);
+  if (!a) return;
+  const antes = snapAula(a), nomeC = comps.find((x) => x.id === a.componente_id)?.nome || 'aula';
+  try {
+    await rpc('remover_aula', { p_aula: id });
+    registrar(`remover ${nomeC}`, () => gravarSnap(antes));
+    avisar(`${nomeC} removida. Use Desfazer se foi sem querer.`);
+  } catch (e) { mostrarErro($m('#msg'), e); }
+  await carregar();
+}
+async function segundoProfessor(aulaId, profId) {
+  const a = aulas.find((x) => x.id === aulaId);
+  if (!a) return;
+  if (a.professores.includes(profId)) { avisar(`${primeiro(profId)} já está nesta aula.`, 'aviso'); return; }
+  if (a.professores.length >= 2) { avisar('Esta aula já tem dois professores. Clique nela para trocar.', 'aviso'); return; }
+  const antes = snapAula(a), nomeC = comps.find((x) => x.id === a.componente_id)?.nome || 'aula';
+  try {
+    await gravarSnap({ ...antes, profs: [...a.professores, profId] }, a.id);
+    registrar(`incluir ${primeiro(profId)} em ${nomeC}`, () => gravarSnap(antes, a.id));
+    $m('#msg').classList.add('oculto');
+    avisar(`${primeiro(profId)} agora também está em ${nomeC}.`);
+  } catch (e) { mostrarErro($m('#msg'), e); }
+  await carregar();
+}
+
+// ---------- horários impossíveis durante o arraste ----------
+function motivoBloqueio(profs, dia, slot, ignorar) {
+  const L = dia === 6 ? HSAB : HS;
+  const h = L.find((x) => x.numero === slot);
+  for (const p of profs) {
+    const nome = primeiro(p);
+    if (posDias.get(p)?.has(dia)) return `${nome} tem pós neste dia`;
+    if (h && !disps.some((d) => d.professor_id === p && d.dia_semana === dia && d.inicio <= h.inicio && d.fim >= h.fim)) return `${nome} não está disponível neste horário`;
+    const outra = aulas.find((a) => a.id !== ignorar && a.professores.includes(p) && a.dia_semana === dia && slot >= a.inicio && slot < a.inicio + a.quantidade);
+    if (outra) return `${nome} já tem aula neste horário${turmas.some((t) => t.id === outra.turma_id) ? '' : ' (em turma de outro curso)'}`;
+  }
+  return '';
+}
+function marcarBloqueios(origem) {
+  let profs = [], ignorar = null;
+  if (origem.tipo === 'prof') profs = [origem.id];
+  else if (origem.tipo === 'chip' && origem.prof) profs = [origem.prof];
+  else if (origem.tipo === 'aula') { const a = aulas.find((x) => x.id === origem.id); profs = a?.professores || []; ignorar = a?.id; }
+  if (!profs.length) return;
+  $m('#turmas').querySelectorAll('.mh-slot').forEach((el) => {
+    const m = motivoBloqueio(profs, Number(el.dataset.dia), Number(el.dataset.slot), ignorar);
+    if (m) { el.classList.add('mh-bloq'); el.dataset.motivo = m; el.title = m; }
+  });
+}
+function limparBloqueios() {
+  $m('#turmas').querySelectorAll('.mh-bloq').forEach((el) => { el.classList.remove('mh-bloq'); el.removeAttribute('title'); delete el.dataset.motivo; });
+  document.querySelectorAll('.mh-alvo').forEach((el) => el.classList.remove('mh-alvo'));
+}
+
+// ---------- arrastar e soltar (mouse e toque) ----------
+let semCliqueAte = 0;
+function origemDe(el) {
+  if (el.dataset.prof) return { tipo: 'prof', id: el.dataset.prof };
+  if (el.dataset.chip) return { tipo: 'chip', ...JSON.parse(el.dataset.chip) };
+  if (el.dataset.aula) return { tipo: 'aula', id: el.dataset.aula };
+  return null;
+}
+function comecar(origem) {
+  arrastando = origem;
+  document.body.classList.add('mh-arrastando-algo');
+  document.body.classList.toggle('mh-arrastando-aula', origem.tipo === 'aula');
+  marcarBloqueios(origem);
+}
+function terminar() {
+  arrastando = null;
+  document.body.classList.remove('mh-arrastando-algo', 'mh-arrastando-aula');
+  limparBloqueios();
+  if (recarregarDepois) { recarregarDepois = false; carregar(); }
+}
+function aceita(alvo, origem) {
+  if (!origem) return false;
+  if (alvo.id === 'lixeira') return origem.tipo === 'aula';
+  if (alvo.dataset.aula) return origem.tipo === 'prof';
+  return alvo.classList.contains('mh-slot');
+}
+function soltar(origem, alvo) {
+  if (!aceita(alvo, origem)) return;
+  if (alvo.id === 'lixeira') { removerAula(origem.id); return; }
+  if (alvo.dataset.aula) { segundoProfessor(alvo.dataset.aula, origem.id); return; }
+  const pos = { turma: alvo.dataset.turma, dia: Number(alvo.dataset.dia), slot: Number(alvo.dataset.slot), sub: alvo.dataset.sub };
+  if (origem.tipo === 'aula') moverAula(origem.id, pos);
+  else if (origem.tipo === 'prof') lancarDireto(pos, origem.id).then((ok) => { if (!ok) dialogoAula(pos, origem); });
+  else dialogoAula(pos, origem);
+}
+function ligarAlvo(el) {
+  el.addEventListener('dragover', (ev) => { if (aceita(el, arrastando)) { ev.preventDefault(); el.classList.add('mh-alvo'); } });
+  el.addEventListener('dragleave', () => el.classList.remove('mh-alvo'));
+  el.addEventListener('drop', (ev) => {
+    ev.preventDefault(); ev.stopPropagation(); el.classList.remove('mh-alvo');
+    let origem = arrastando;
+    try { origem = JSON.parse(ev.dataTransfer.getData('text/plain')); } catch { /* usa o estado */ }
+    terminar();
+    soltar(origem, el);
+  });
+}
+function ligarArraste(el) {
+  // mouse: arrastar nativo do navegador
+  el.addEventListener('dragstart', (ev) => {
+    const origem = origemDe(el);
+    ev.dataTransfer.setData('text/plain', JSON.stringify(origem));
+    ev.dataTransfer.effectAllowed = origem.tipo === 'aula' ? 'move' : 'copy';
+    if (origem.tipo === 'aula') setTimeout(() => el.classList.add('mh-arrastando'), 0);
+    comecar(origem);
+  });
+  el.addEventListener('dragend', () => { el.classList.remove('mh-arrastando'); if (arrastando) terminar(); });
+  // toque: segurar o dedo um instante e arrastar
+  el.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType !== 'touch') return;
+    const origem = origemDe(el), x0 = ev.clientX, y0 = ev.clientY;
+    let iniciado = false, fantasma = null, alvo = null;
+    const limpar = () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', fim);
+      window.removeEventListener('pointercancel', cancelar);
+      fantasma?.remove(); alvo?.classList.remove('mh-alvo');
+    };
+    const mover = (e) => {
+      if (!iniciado) { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) limpar(); return; }
+      fantasma.style.transform = `translate(${e.clientX + 8}px, ${e.clientY + 8}px)`;
+      const t = document.elementFromPoint(e.clientX, e.clientY)?.closest('.mh-slot, .mh-bloco, #lixeira');
+      if (t !== alvo) { alvo?.classList.remove('mh-alvo'); alvo = t && aceita(t, origem) ? t : null; alvo?.classList.add('mh-alvo'); }
+    };
+    const fim = () => {
+      const a = alvo;
+      limpar();
+      if (!iniciado) return;
+      semCliqueAte = Date.now() + 500;
+      terminar();
+      if (a) soltar(origem, a);
+    };
+    const cancelar = () => { limpar(); if (iniciado) terminar(); };
+    const timer = setTimeout(() => {
+      iniciado = true;
+      comecar(origem);
+      fantasma = el.cloneNode(true);
+      fantasma.className = `${el.className} mh-fantasma`;
+      fantasma.style.width = `${Math.min(el.offsetWidth, 180)}px`;
+      document.body.appendChild(fantasma);
+      fantasma.style.transform = `translate(${x0 + 8}px, ${y0 + 8}px)`;
+      navigator.vibrate?.(15);
+    }, 280);
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', fim);
+    window.addEventListener('pointercancel', cancelar);
+  });
+}
+// durante o arraste por toque a página não rola
+document.addEventListener('touchmove', (e) => { if (arrastando) e.preventDefault(); }, { passive: false });
+ligarAlvo($m('#lixeira'));
+
+// ---------- tempo real e presença ----------
+let canal = null, recarregarDepois = false, timerRT = null;
+function mudouNoBanco() {
+  clearTimeout(timerRT);
+  timerRT = setTimeout(() => {
+    if (arrastando || document.querySelector('dialog[open]')) { recarregarDepois = true; return; }
+    carregar();
+  }, 700);
+}
+function conectarTempoReal() {
+  try {
+    if (!sb.channel) return;
+    if (canal) sb.removeChannel(canal);
+    const eu = perfil.professor_id || perfil.nome;
+    canal = sb.channel(`montar-${periodoId}-${cursoId}`, { config: { presence: { key: String(eu) } } });
+    for (const tabela of ['aulas', 'aula_professores', 'aula_subturmas', 'atribuicoes']) {
+      canal.on('postgres_changes', { event: '*', schema: 'public', table: tabela }, mudouNoBanco);
+    }
+    canal.on('presence', { event: 'sync' }, () => {
+      const outros = Object.entries(canal.presenceState()).filter(([k]) => k !== String(eu)).map(([, v]) => v[0]?.nome).filter(Boolean);
+      const curso = cursos.find((c) => c.id === cursoId)?.sigla || 'este curso';
+      $m('#presenca').innerHTML = outros.length ? `<span class="mh-ponto"></span>${esc(outros.join(', '))} também ${outros.length > 1 ? 'estão' : 'está'} montando ${esc(curso)}` : '';
+    });
+    canal.subscribe((st) => { if (st === 'SUBSCRIBED') canal.track({ nome: perfil.nome }); });
+  } catch { /* sem tempo real: a tela continua funcionando */ }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && recarregarDepois) { recarregarDepois = false; carregar(); } });
 
 // ---------- janela de lançar / editar ----------
 function dialogoAula(alvoPos, origem, aula = null) {
@@ -373,7 +586,8 @@ function dialogoAula(alvoPos, origem, aula = null) {
       const subIds = subEsc === 'todas' ? subs.map((s) => s.id) : [subEsc];
       const p1 = d.querySelector('#a-prof').value, p2 = d.querySelector('#a-prof2').value;
       if (p2 && p2 === p1) throw new Error('O 2º professor é o mesmo do 1º.');
-      await rpc('gravar_aula', {
+      const antes = aula ? snapAula(aula) : null;
+      const id = await rpc('gravar_aula', {
         p_aula: aula?.id || null, p_turma: t.id, p_componente: comp,
         p_dia: Number(d.querySelector('#a-dia').value), p_inicio: Number(d.querySelector('#a-ini').value), p_quantidade: Number(d.querySelector('#a-qtd').value),
         p_subturmas: subIds, p_professores: [p1, p2].filter(Boolean), p_ambiente: d.querySelector('#a-amb').value.trim() || null,
@@ -381,6 +595,9 @@ function dialogoAula(alvoPos, origem, aula = null) {
       if (p1 && !d.querySelector('#a-lista-box').classList.contains('oculto') && d.querySelector('#a-lista').checked) {
         await q(sb.from('atribuicoes').upsert(subIds.map((s) => ({ subturma_id: s, componente_id: comp, professor_id: p1 })), { onConflict: 'subturma_id,componente_id' }));
       }
+      const nomeC = comps.find((x) => x.id === comp)?.nome || 'aula';
+      if (aula) registrar(`editar ${nomeC}`, () => gravarSnap(antes, aula.id));
+      else registrar(`lançar ${nomeC}`, () => rpc('remover_aula', { p_aula: id }));
       avisar(aula ? 'Aula atualizada.' : 'Aula lançada.');
       await carregar();
     },
@@ -418,15 +635,23 @@ function dialogoAula(alvoPos, origem, aula = null) {
   $d('#a-remover')?.addEventListener('click', async () => {
     dlg.close();
     if (!(await confirmar('Remover aula?', 'A aula sai da grade desta turma.', 'Remover', true))) return;
-    try { await rpc('remover_aula', { p_aula: aula.id }); avisar('Aula removida.'); await carregar(); }
+    try { await removerAula(aula.id); }
     catch (e) { mostrarErro($m('#msg'), e); }
   });
   checarLista();
+  dlg.addEventListener('close', () => { if (recarregarDepois) { recarregarDepois = false; carregar(); } });
   if (!compId) $d('#a-comp').focus(); else $d('[data-ok]').focus();
 }
 
 // ---------- eventos ----------
-$m('#per').addEventListener('change', (e) => { periodoId = e.target.value; carregar(); });
-$m('#curso').addEventListener('change', (e) => { cursoId = e.target.value; try { localStorage.setItem('montar-curso', cursoId); } catch { /* ignora */ } carregar(); });
+$m('#per').addEventListener('change', (e) => { periodoId = e.target.value; pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
+$m('#curso').addEventListener('change', (e) => { cursoId = e.target.value; try { localStorage.setItem('montar-curso', cursoId); } catch { /* ignora */ } pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
+$m('#desfazer').addEventListener('click', desfazer);
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && !document.querySelector('dialog[open]') && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+    e.preventDefault(); desfazer();
+  }
+});
+conectarTempoReal();
 $m('#busca').addEventListener('input', (e) => { filtro = e.target.value.trim().toLowerCase(); desenharProfs(); });
 carregar().catch((e) => mostrarErro($m('#msg'), e));
