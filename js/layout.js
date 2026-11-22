@@ -1,13 +1,12 @@
-import { TITULO_SISTEMA } from './config.js?v=202611221356';
-import { sair } from './auth.js?v=202611221356';
-import { esc } from './util.js?v=202611221356';
+import { TITULO_SISTEMA } from './config.js?v=202611221440';
+import { sair } from './auth.js?v=202611221440';
+import { esc } from './util.js?v=202611221440';
 
 // Menu do administrador. "pronto: false" = tela ainda não entregue.
 const MENU_ADM = [
   { tipo: 'link', id: 'inicio', rotulo: 'Dashboard', href: 'inicio.html', pronto: true },
   { tipo: 'grupo', id: 'planejamento', rotulo: 'Planejamento', itens: [
     { id: 'montar', rotulo: 'Montar horário', href: 'montar.html' },
-    { id: 'grade', rotulo: 'Grade (tela antiga)', href: 'grade.html' },
     { id: 'pos', rotulo: 'Planejamento da pós', href: 'pos.html' },
     { id: 'carga', rotulo: 'Carga docente', href: 'carga.html' },
   ] },
@@ -38,10 +37,10 @@ const MENU_PROF = [
 ];
 
 // Telas já entregues (as demais aparecem como "em breve")
-const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'grade', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar']);
+const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar']);
 
 // Telas largas: o menu começa recolhido (sanduíche) e abre por cima ao clicar
-const RECOLHIDAS = new Set(['grade', 'montar']);
+const RECOLHIDAS = new Set(['montar']);
 const TELA_ESTREITA = '(max-width: 860px)';
 
 function linkHtml(item, ativo, classe = '') {

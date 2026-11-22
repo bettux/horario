@@ -1,7 +1,7 @@
-import { iniciarPagina, avisar, confirmar } from './pagina.js?v=202611221356';
-import { sb, q, rpc } from './supabase.js?v=202611221356';
-import { contas } from './auth.js?v=202611221356';
-import { esc, mostrarAlerta } from './util.js?v=202611221356';
+import { iniciarPagina, avisar, confirmar } from './pagina.js?v=202611221440';
+import { sb, q, rpc } from './supabase.js?v=202611221440';
+import { contas } from './auth.js?v=202611221440';
+import { esc, mostrarAlerta } from './util.js?v=202611221440';
 
 const { main } = await iniciarPagina('usuarios');
 const { data: eu } = await sb.auth.getUser();

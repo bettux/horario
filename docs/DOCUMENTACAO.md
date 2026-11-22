@@ -354,7 +354,7 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 | `gravar_aula(aula, turma, componente, dia, inicio, quantidade, subturmas[], professores[], ambiente)` | Lança (aula nula) ou altera **uma** aula. Bloqueia só problemas novos e registra no histórico. |
 | `remover_aula(aula)` | Remove uma aula e registra no histórico |
 | `limpar_turma(turma)` | Remove todas as aulas da turma, mantém a lista Matéria → Professor e registra no histórico |
-| `salvar_grade_turma(turma, aulas jsonb)` | Substitui a grade inteira da turma (usada pela Grade antiga) |
+| `salvar_grade_turma(turma, aulas jsonb)` | Substitui a grade inteira da turma (era usada pela tela antiga, removida em 22/11/2026; mantida no banco) |
 | `salvar_oferta_pos(turma, componente, modo, professor, formato, encontros jsonb)` | Grava um módulo da pós e os encontros dele; sem encontros, remove |
 | `salvar_disponibilidade(prof, periodo, dias jsonb)` | Substitui a disponibilidade do professor no período |
 | `salvar_atividade(id, prof, periodo, descricao, quantidade, frequencia, observacao, tipo)` | Cria ou altera uma atividade complementar |
@@ -400,7 +400,7 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 
 ## 7. Telas
 
-**Menu do ADM:** Dashboard · Planejamento (Montar horário, Grade (tela antiga), Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Minhas aulas · Sair.
+**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Minhas aulas · Sair.
 
 **Menu do professor:** Minhas aulas · Sair.
 
@@ -412,7 +412,6 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | Primeiro acesso (`primeiro-acesso.html`) | todos | Troca obrigatória da senha provisória | Edge `gerenciar-usuarios` (`trocar_senha`) |
 | Dashboard (`inicio.html`) | ADM | Indicadores do período, andamento por turma e aulas de todos os professores | `carga_todos`, `auditoria` |
 | **Montar horário** (`montar.html`) | ADM | Tela principal da grade (3.10 e 3.11) | `gravar_aula`, `remover_aula`, `limpar_turma`, `carga_todos`, Realtime |
-| Grade antiga (`grade.html`) | ADM | Uma turma por vez, salva a grade inteira | `salvar_grade_turma` |
 | Planejamento da pós (`pos.html`) | ADM | Módulos e encontros por turma, nos modos Semana e Sábado, pulando dias não letivos | `salvar_oferta_pos` |
 | Carga docente (`carga.html`) | ADM | Carga semana a semana de todos, com o detalhe do cálculo | `carga_todos` |
 | Cadastro de professores (`professores.html`) | ADM | Nome, NIF, cor (36 cores), ativo, perfil; criar acesso | tabela `professores`, Edge `criar_acesso` |

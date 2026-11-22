@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611221356';
-import { sb, q, rpc } from './supabase.js?v=202611221356';
-import { esc, DIAS } from './util.js?v=202611221356';
-import { tons } from './cores.js?v=202611221356';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611221440';
+import { sb, q, rpc } from './supabase.js?v=202611221440';
+import { esc, DIAS } from './util.js?v=202611221440';
+import { tons } from './cores.js?v=202611221440';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.

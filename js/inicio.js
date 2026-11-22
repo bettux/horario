@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221356';
-import { rpc } from './supabase.js?v=202611221356';
-import { esc, isoData, segundaDaSemana, parseData, ddmm, duracao } from './util.js?v=202611221356';
-import { carregarAnalise } from './analise.js?v=202611221356';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221440';
+import { rpc } from './supabase.js?v=202611221440';
+import { esc, isoData, segundaDaSemana, parseData, ddmm, duracao } from './util.js?v=202611221440';
+import { carregarAnalise } from './analise.js?v=202611221440';
 
 const { perfil, main } = await iniciarPagina('inicio');
 
@@ -72,13 +72,13 @@ function desenhar(periodo, an, carga, erros) {
 
     <div class="duas-colunas">
       <section class="card larga" style="overflow:hidden">
-        <div class="barra" style="justify-content:space-between;align-items:baseline"><h2 style="font-size:15px">Andamento por turma</h2><a href="grade.html" style="font-size:13px;font-weight:600">Abrir grade</a></div>
+        <div class="barra" style="justify-content:space-between;align-items:baseline"><h2 style="font-size:15px">Andamento por turma</h2><a href="montar.html" style="font-size:13px;font-weight:600">Abrir Montar horário</a></div>
         <div class="tabela-box"><table>
           <thead><tr><th>Turma</th><th>Componentes completos</th><th style="width:30%">Progresso</th><th>Situação</th></tr></thead>
           <tbody>${sg.length ? sg.map(({ t, s }) => {
             const pct = s.total ? Math.round((s.completos / s.total) * 100) : 0;
             const sit = !s.aulas ? '<span class="chip chip-aviso">Não iniciada</span>' : s.completos === s.total ? '<span class="chip chip-ok">Completa</span>' : '<span class="chip chip-neu">Em andamento</span>';
-            return `<tr><td><a href="grade.html?turma=${t.id}" style="color:var(--texto);text-decoration:none">${esc(t.rotulo)}</a></td><td class="num">${s.completos} de ${s.total}</td>
+            return `<tr><td><a href="montar.html" style="color:var(--texto);text-decoration:none">${esc(t.rotulo)}</a></td><td class="num">${s.completos} de ${s.total}</td>
               <td><div style="height:6px;border-radius:999px;background:#EEEEF1;overflow:hidden"><div style="height:6px;border-radius:999px;width:${pct}%;background:${pct === 100 ? '#1F8A4C' : 'var(--vermelho)'}"></div></div></td><td>${sit}</td></tr>`;
           }).join('') : '<tr><td colspan="4" class="muted">Nenhuma turma de graduação neste período.</td></tr>'}</tbody></table></div>
       </section>

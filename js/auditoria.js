@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221356';
-import { rpc } from './supabase.js?v=202611221356';
-import { esc } from './util.js?v=202611221356';
-import { carregarAnalise } from './analise.js?v=202611221356';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221440';
+import { rpc } from './supabase.js?v=202611221440';
+import { esc } from './util.js?v=202611221440';
+import { carregarAnalise } from './analise.js?v=202611221440';
 
 const { main } = await iniciarPagina('auditoria');
 
@@ -33,10 +33,10 @@ function destino(texto) {
   if (t.includes('não está disponível')) return ['disponibilidade.html', 'Ver disponibilidade'];
   if (t.includes('aulas equivalentes') || t.includes('limite é 40')) return ['carga.html', 'Ver carga docente'];
   if (t.includes('atividade')) return ['atividades.html', 'Ver atividades'];
-  if (t.includes('inativo')) return ['grade.html', 'Trocar o professor'];
+  if (t.includes('inativo')) return ['montar.html', 'Trocar o professor'];
   if (t.includes('pós') || t.includes('encontro') || t.includes('não letivo') || t.includes('módulo') || t.includes('fora do período')) return ['pos.html', 'Abrir planejamento da pós'];
   if (t.includes('nomes parecidos')) return ['configuracoes.html', 'Padronizar ambientes'];
-  return ['grade.html', 'Abrir grade'];
+  return ['montar.html', 'Abrir Montar horário'];
 }
 
 async function verificar() {
@@ -68,7 +68,7 @@ function desenhar() {
   $m('#lista').innerHTML = lista.length ? `<table style="min-width:760px">
     <thead><tr><th>Tipo</th><th>Onde</th><th style="width:55%">Problema</th><th>O que fazer</th></tr></thead>
     <tbody>${lista.map((i) => {
-      const [href, rot] = i.pos ? ['pos.html', 'Abrir planejamento da pós'] : i.onde === 'Ambientes' ? ['configuracoes.html', 'Padronizar ambientes'] : i.texto.startsWith('Turma sem') || i.tipo === 'aviso' ? ['grade.html', 'Abrir grade'] : destino(i.texto);
+      const [href, rot] = i.pos ? ['pos.html', 'Abrir planejamento da pós'] : i.onde === 'Ambientes' ? ['configuracoes.html', 'Padronizar ambientes'] : i.texto.startsWith('Turma sem') || i.tipo === 'aviso' ? ['montar.html', 'Abrir Montar horário'] : destino(i.texto);
       return `<tr><td>${i.tipo === 'erro' ? '<span class="chip chip-erro">Erro</span>' : '<span class="chip chip-aviso">Aviso</span>'}</td>
         <td>${esc(i.onde)}</td><td style="line-height:1.45">${esc(i.texto)}</td><td style="white-space:nowrap"><a href="${href}" style="font-weight:600">${rot}</a></td></tr>`;
     }).join('')}</tbody></table>`
