@@ -19,7 +19,9 @@ main.innerHTML = `
   <div class="mh-acoes">
     <span id="presenca" class="mh-presenca"></span>
     <button type="button" class="btn btn-s" id="desfazer" disabled title="Desfazer a última ação (Ctrl+Z)">Desfazer</button>
+    <button type="button" class="btn btn-p btn-s" id="auto">Preencher automaticamente</button>
   </div>
+  <div id="proposta" class="oculto"></div>
   <div id="msg" class="oculto" role="alert"></div>
   <div id="lixeira" class="mh-lixeira" aria-label="Soltar aqui para remover a aula">Solte aqui para remover a aula</div>
   <div class="mh">
@@ -56,6 +58,8 @@ let destaque = null; // professor destacado no painel
 let disps = [], posDias = new Map(); // disponibilidade e dias com pós (para apagar horários impossíveis)
 let arrastando = null; // o que está sendo arrastado agora
 const pilha = []; // ações para desfazer
+let proposta = []; // aulas sugeridas pelo preenchimento automático (ainda não gravadas)
+let naoCoube = [];
 
 $m('#curso').innerHTML = cursos.map((c) => `<option value="${c.id}">${esc(c.sigla ? `${c.sigla} · ${c.nome}` : c.nome)}</option>`).join('');
 try { const c = localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) $m('#curso').value = c; } catch { /* ignora */ }
@@ -130,7 +134,7 @@ function blocoHtml(a, t, extra = '') {
   const nomes = a.professores.map(primeiro).join(' + ') || 'sem professor';
   const subsNomes = t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
   const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambiente_id ? ' · ' + (ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}`;
-  return `<button type="button" class="mh-bloco" draggable="true" data-aula="${a.id}" data-profs="${a.professores.join(' ')}" title="${esc(titulo)} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
+  return `<button type="button" class="mh-bloco${a.prop ? ' mh-prop' : ''}" draggable="true" data-aula="${a.id}" data-profs="${a.professores.join(' ')}" title="${esc(titulo)} ${a.prop ? ' · PROPOSTA, ainda não gravada' : ''} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
     <span class="mh-sig">${esc(sigla(c))}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
 }
 
@@ -155,7 +159,8 @@ function turmaHtml(t) {
     });
   });
   // blocos de segunda a sexta
-  for (const a of aulas.filter((x) => x.turma_id === t.id && x.dia_semana <= 5)) {
+  const daTurma = [...aulas, ...proposta].filter((x) => x.turma_id === t.id);
+  for (const a of daTurma.filter((x) => x.dia_semana <= 5)) {
     const idx = subs.map((s, i) => (a.subturmas.includes(s.id) ? i : -1)).filter((i) => i >= 0);
     if (!idx.length) continue;
     const r0 = HS.findIndex((h) => h.numero === a.inicio);
@@ -165,7 +170,7 @@ function turmaHtml(t) {
     for (const [i0, span] of faixas) g += blocoHtml(a, t, `grid-row:${r0 + 3} / span ${Math.min(a.quantidade, HS.length - r0)};grid-column:${2 + (a.dia_semana - 1) * ns + i0} / span ${span};`);
   }
   // sábado: uma coluna, com os horários do sábado
-  const sab = aulas.filter((x) => x.turma_id === t.id && x.dia_semana === 6);
+  const sab = daTurma.filter((x) => x.dia_semana === 6);
   let s6 = HSAB.map((h, r) => `<div class="mh-slot mh-slot-sab" data-turma="${t.id}" data-dia="6" data-slot="${h.numero}" data-sub="todas" style="grid-row:${r + 1}"><span>${hm(h.inicio)}</span></div>`).join('');
   for (const a of sab) {
     const r0 = HSAB.findIndex((h) => h.numero === a.inicio);
@@ -232,6 +237,7 @@ function desenhar() {
   }));
   area.querySelectorAll('[data-aula]').forEach((el) => el.addEventListener('click', () => {
     if (Date.now() < semCliqueAte) return;
+    if (el.dataset.aula.startsWith('p-')) { tirarDaProposta(el.dataset.aula); return; }
     const a = aulas.find((x) => x.id === el.dataset.aula);
     dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
   }));
@@ -371,7 +377,7 @@ function motivoBloqueio(profs, dia, slot, ignorar) {
     const nome = primeiro(p);
     if (posDias.get(p)?.has(dia)) return `${nome} tem pós neste dia`;
     if (h && !disps.some((d) => d.professor_id === p && d.dia_semana === dia && d.inicio <= h.inicio && d.fim >= h.fim)) return `${nome} não está disponível neste horário`;
-    const outra = aulas.find((a) => a.id !== ignorar && a.professores.includes(p) && a.dia_semana === dia && slot >= a.inicio && slot < a.inicio + a.quantidade);
+    const outra = [...aulas, ...proposta].find((a) => a.id !== ignorar && a.professores.includes(p) && a.dia_semana === dia && slot >= a.inicio && slot < a.inicio + a.quantidade);
     if (outra) return `${nome} já tem aula neste horário${turmas.some((t) => t.id === outra.turma_id) ? '' : ' (em turma de outro curso)'}`;
   }
   return '';
@@ -380,7 +386,7 @@ function marcarBloqueios(origem) {
   let profs = [], ignorar = null;
   if (origem.tipo === 'prof') profs = [origem.id];
   else if (origem.tipo === 'chip' && origem.prof) profs = [origem.prof];
-  else if (origem.tipo === 'aula') { const a = aulas.find((x) => x.id === origem.id); profs = a?.professores || []; ignorar = a?.id; }
+  else if (origem.tipo === 'aula' || origem.tipo === 'prop') { const a = [...aulas, ...proposta].find((x) => x.id === origem.id); profs = a?.professores || []; ignorar = a?.id; }
   if (!profs.length) return;
   $m('#turmas').querySelectorAll('.mh-slot').forEach((el) => {
     const m = motivoBloqueio(profs, Number(el.dataset.dia), Number(el.dataset.slot), ignorar);
@@ -397,13 +403,13 @@ let semCliqueAte = 0;
 function origemDe(el) {
   if (el.dataset.prof) return { tipo: 'prof', id: el.dataset.prof };
   if (el.dataset.chip) return { tipo: 'chip', ...JSON.parse(el.dataset.chip) };
-  if (el.dataset.aula) return { tipo: 'aula', id: el.dataset.aula };
+  if (el.dataset.aula) return { tipo: el.dataset.aula.startsWith('p-') ? 'prop' : 'aula', id: el.dataset.aula };
   return null;
 }
 function comecar(origem) {
   arrastando = origem;
   document.body.classList.add('mh-arrastando-algo');
-  document.body.classList.toggle('mh-arrastando-aula', origem.tipo === 'aula');
+  document.body.classList.toggle('mh-arrastando-aula', origem.tipo === 'aula' || origem.tipo === 'prop');
   marcarBloqueios(origem);
 }
 function terminar() {
@@ -414,12 +420,13 @@ function terminar() {
 }
 function aceita(alvo, origem) {
   if (!origem) return false;
-  if (alvo.id === 'lixeira') return origem.tipo === 'aula';
+  if (alvo.id === 'lixeira') return origem.tipo === 'aula' || origem.tipo === 'prop';
   if (alvo.dataset.aula) return origem.tipo === 'prof';
   return alvo.classList.contains('mh-slot');
 }
 function soltar(origem, alvo) {
   if (!aceita(alvo, origem)) return;
+  if (origem.tipo === 'prop' || (alvo.dataset.aula || '').startsWith('p-')) { alterarProposta(origem, alvo); return; }
   if (alvo.id === 'lixeira') { removerAula(origem.id); return; }
   if (alvo.dataset.aula) { segundoProfessor(alvo.dataset.aula, origem.id); return; }
   const pos = { turma: alvo.dataset.turma, dia: Number(alvo.dataset.dia), slot: Number(alvo.dataset.slot), sub: alvo.dataset.sub };
@@ -521,6 +528,157 @@ function conectarTempoReal() {
   } catch { /* sem tempo real: a tela continua funcionando */ }
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && recarregarDepois) { recarregarDepois = false; carregar(); } });
+
+// ---------- preenchimento automático ----------
+// Encaixa o que falta usando a lista Matéria -> Professor. Ordem: aulas conjuntas (turma inteira) primeiro,
+// depois as mais difíceis de encaixar. Sempre tenta o bloco inteiro num dia; só divide quando não cabe.
+const ehExtensao = (c) => /^\s*(atividades de )?extens/i.test(c?.nome || '');
+function gerarProposta() {
+  if (!turmas.length) { avisar('Nenhuma turma neste curso e período.', 'aviso'); return; }
+  const ocupadas = [...aulas]; // vai recebendo a proposta conforme encaixa
+  const nova = []; naoCoube = [];
+  const extra = new Map(); // aulas por semana somadas a cada professor
+  const nomeT = (t) => `${cursos.find((c) => c.id === cursoId)?.sigla || ''} ${t.semestre}º · ${t.identificacao}`;
+
+  // 1) demandas
+  const dem = [];
+  for (const t of turmas) {
+    const subs = t.subturmas;
+    if (!subs.length) continue;
+    for (const c of compsDaTurma(t)) {
+      const porSub = subs.map((s) => ({ s, f: falta(t, c, s), p: atribDe(s.id, c.id) })).filter((x) => x.f > 0);
+      if (!porSub.length) continue;
+      const semProf = c.professor === 'sem';
+      const juntos = subs.length > 1 && porSub.length === subs.length && porSub.every((x) => x.p === porSub[0].p && x.f === porSub[0].f);
+      const grupos = juntos ? [{ subs: subs.map((s) => s.id), p: porSub[0].p, f: porSub[0].f, conj: true }]
+        : porSub.map((x) => ({ subs: [x.s.id], p: x.p, f: x.f, conj: subs.length === 1 }));
+      for (const g of grupos) {
+        if (!g.p && !semProf && c.professor === 'obrigatorio') { naoCoube.push(`${nomeT(t)} · ${c.nome}: sem professor definido na lista Matéria → Professor.`); continue; }
+        const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
+        dem.push({ t, c, subs: g.subs, profs: g.p && !semProf ? [g.p] : [], qtd: g.f, conj: g.conj,
+          dias: c.modalidade === 'ead_sincrona' || ehExtensao(c) ? [6, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5],
+          amb: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null });
+      }
+    }
+  }
+
+  // 2) quais horários servem
+  const L = (d) => (d === 6 ? HSAB : HS);
+  const livre = (dm, d, slot) => {
+    const h = L(d).find((x) => x.numero === slot);
+    if (!h) return false;
+    for (const p of dm.profs) {
+      if (posDias.get(p)?.has(d)) return false;
+      if (!disps.some((x) => x.professor_id === p && x.dia_semana === d && x.inicio <= h.inicio && x.fim >= h.fim)) return false;
+      if (ocupadas.some((a) => a.professores.includes(p) && a.dia_semana === d && slot >= a.inicio && slot < a.inicio + a.quantidade)) return false;
+    }
+    return !ocupadas.some((a) => a.turma_id === dm.t.id && a.dia_semana === d && slot >= a.inicio && slot < a.inicio + a.quantidade && a.subturmas.some((s) => dm.subs.includes(s)));
+  };
+  const opcoes = (dm) => dm.dias.reduce((n, d) => n + L(d).filter((h) => livre(dm, d, h.numero)).length, 0);
+  // conjuntas primeiro; depois as de menos opções; depois as maiores
+  dem.forEach((dm) => { dm.op = opcoes(dm); });
+  dem.sort((a, b) => Number(b.conj) - Number(a.conj) || a.op - b.op || b.qtd - a.qtd);
+
+  // 3) encaixe
+  const cargaOk = (dm, n) => dm.profs.every((p) => (pico.get(p) || 0) + Math.ceil(((extra.get(p) || 0) + n) * 1.2) <= 40);
+  const carregaDia = (t, d) => ocupadas.filter((a) => a.turma_id === t.id && a.dia_semana === d).reduce((n, a) => n + a.quantidade, 0);
+  const achar = (dm, n, evitar) => {
+    const cands = [];
+    for (const d of dm.dias) {
+      if (evitar.has(d)) continue;
+      const lista = L(d);
+      for (let i = 0; i + n <= lista.length; i++) {
+        if (lista.slice(i, i + n).every((h) => livre(dm, d, h.numero))) { cands.push({ d, inicio: lista[i].numero, carga: carregaDia(dm.t, d), ord: dm.dias.indexOf(d) }); break; }
+      }
+    }
+    cands.sort((a, b) => (dm.dias[0] === 6 ? a.ord - b.ord : a.carga - b.carga || a.ord - b.ord));
+    return cands[0] || null;
+  };
+  let seq = 0;
+  for (const dm of dem) {
+    let resta = dm.qtd; const usados = new Set();
+    if (!cargaOk(dm, resta)) { naoCoube.push(`${nomeT(dm.t)} · ${dm.c.nome}: ${primeiro(dm.profs[0])} passaria do limite de 40.`); continue; }
+    while (resta > 0) {
+      let pos = null, n = resta;
+      for (; n >= 1 && !pos; n--) pos = achar(dm, n, usados); // bloco inteiro primeiro; só divide se não couber
+      if (!pos) break;
+      n++;
+      const item = { id: `p-${++seq}`, prop: true, turma_id: dm.t.id, componente_id: dm.c.id, dia_semana: pos.d, inicio: pos.inicio, quantidade: n,
+        subturmas: dm.subs, professores: dm.profs, ambiente_id: null, amb: dm.amb };
+      nova.push(item); ocupadas.push(item); usados.add(pos.d); resta -= n;
+      for (const p of dm.profs) extra.set(p, (extra.get(p) || 0) + n);
+    }
+    if (resta > 0) {
+      const quem = dm.profs.length ? primeiro(dm.profs[0]) : 'a turma';
+      naoCoube.push(`${nomeT(dm.t)} · ${dm.c.nome}${dm.conj ? '' : ` (${dm.t.subturmas.filter((s) => dm.subs.includes(s.id)).map((s) => s.nome).join('+')})`}: faltaram ${resta} aula(s) — sem horário livre em que ${quem} esteja disponível.`);
+    }
+  }
+  proposta = nova;
+  desenharProposta();
+  desenhar();
+  if (!nova.length) avisar(naoCoube.length ? 'Não consegui encaixar nada. Veja os motivos no quadro da proposta.' : 'Não há nada pendente para encaixar neste curso.', naoCoube.length ? 'aviso' : 'ok');
+}
+
+function desenharProposta() {
+  const box = $m('#proposta');
+  if (!proposta.length && !naoCoube.length) { box.classList.add('oculto'); box.innerHTML = ''; $m('#auto').disabled = false; return; }
+  const n = proposta.reduce((x, a) => x + a.quantidade, 0);
+  box.className = 'mh-proposta';
+  box.innerHTML = `<div class="mh-prop-cab">
+      <div><strong>Proposta do preenchimento automático</strong>
+      <span class="muted"> · ${n} aula(s) em ${proposta.length} bloco(s), com borda tracejada. Nada foi gravado ainda.</span></div>
+      <div class="acoes">${proposta.length ? '<button type="button" class="btn btn-p btn-s" id="prop-aceitar">Aceitar e gravar</button>' : ''}<button type="button" class="btn btn-s" id="prop-descartar">Descartar</button></div></div>
+    <p class="muted" style="margin:0;font-size:12.5px">Antes de aceitar você pode arrastar os blocos tracejados para outro horário, soltar na lixeira ou clicar para tirar da proposta. Depois de gravar, tudo continua editável normalmente.</p>
+    ${naoCoube.length ? `<details${proposta.length ? '' : ' open'}><summary>Não coube (${naoCoube.length})</summary><ul>${naoCoube.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}`;
+  $m('#auto').disabled = proposta.length > 0;
+  box.querySelector('#prop-aceitar')?.addEventListener('click', aceitarProposta);
+  box.querySelector('#prop-descartar').addEventListener('click', () => { proposta = []; naoCoube = []; desenharProposta(); desenhar(); });
+}
+
+function tirarDaProposta(id) {
+  proposta = proposta.filter((x) => x.id !== id);
+  desenharProposta(); desenhar();
+}
+function alterarProposta(origem, alvo) {
+  const item = proposta.find((x) => x.id === origem.id);
+  if (!item) {
+    if (origem.tipo === 'prof') { // professor solto num bloco da proposta: vira 2º professor
+      const alvoItem = proposta.find((x) => x.id === alvo.dataset.aula);
+      if (alvoItem && !alvoItem.professores.includes(origem.id) && alvoItem.professores.length < 2) alvoItem.professores = [...alvoItem.professores, origem.id];
+      desenhar();
+    }
+    return;
+  }
+  if (alvo.id === 'lixeira') { tirarDaProposta(item.id); return; }
+  if (!alvo.classList.contains('mh-slot')) return;
+  if (alvo.dataset.turma !== item.turma_id) { avisar('Na proposta, a aula só muda de lugar dentro da mesma turma.', 'aviso'); return; }
+  item.dia_semana = Number(alvo.dataset.dia); item.inicio = Number(alvo.dataset.slot);
+  if (alvo.dataset.sub !== 'todas' && item.subturmas.length === 1) item.subturmas = [alvo.dataset.sub];
+  desenhar();
+}
+
+async function aceitarProposta() {
+  const itens = [...proposta];
+  const btn = $m('#prop-aceitar'); btn.disabled = true; btn.textContent = 'Gravando…';
+  const gravados = [], falhas = [];
+  for (const it of itens) {
+    try {
+      const id = await rpc('gravar_aula', { p_aula: null, p_turma: it.turma_id, p_componente: it.componente_id, p_dia: it.dia_semana, p_inicio: it.inicio,
+        p_quantidade: it.quantidade, p_subturmas: it.subturmas, p_professores: it.professores, p_ambiente: it.amb });
+      gravados.push(id);
+    } catch (e) {
+      const c = comps.find((x) => x.id === it.componente_id), t = turmas.find((x) => x.id === it.turma_id);
+      falhas.push(`${t?.identificacao} · ${c?.nome} (${DIAS[it.dia_semana].slice(0, 3).toLowerCase()}): ${(e.linhas && e.linhas[0]) || e.message}`);
+    }
+  }
+  if (gravados.length) registrar(`preenchimento automático (${gravados.length} bloco(s))`, async () => { for (const id of gravados) await rpc('remover_aula', { p_aula: id }); });
+  proposta = [];
+  naoCoube = falhas.length ? falhas.map((f) => `Não gravou: ${f}`).concat(naoCoube) : naoCoube;
+  if (!falhas.length) naoCoube = [];
+  avisar(`${gravados.length} bloco(s) gravado(s)${falhas.length ? `, ${falhas.length} recusado(s) pelas regras` : ''}. Use Desfazer para voltar tudo.`, falhas.length ? 'aviso' : 'ok');
+  desenharProposta();
+  await carregar();
+}
 
 // ---------- janela de lançar / editar ----------
 function dialogoAula(alvoPos, origem, aula = null) {
@@ -644,9 +802,10 @@ function dialogoAula(alvoPos, origem, aula = null) {
 }
 
 // ---------- eventos ----------
-$m('#per').addEventListener('change', (e) => { periodoId = e.target.value; pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
-$m('#curso').addEventListener('change', (e) => { cursoId = e.target.value; try { localStorage.setItem('montar-curso', cursoId); } catch { /* ignora */ } pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
+$m('#per').addEventListener('change', (e) => { periodoId = e.target.value; proposta = []; desenharProposta(); pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
+$m('#curso').addEventListener('change', (e) => { cursoId = e.target.value; try { localStorage.setItem('montar-curso', cursoId); } catch { /* ignora */ } proposta = []; desenharProposta(); pilha.length = 0; atualizarDesfazer(); conectarTempoReal(); carregar(); });
 $m('#desfazer').addEventListener('click', desfazer);
+$m('#auto').addEventListener('click', gerarProposta);
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey && !document.querySelector('dialog[open]') && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
     e.preventDefault(); desfazer();

@@ -399,3 +399,9 @@ body.mh-arrastando-aula .mh-lixeira { display: block; }
 .mh-bloco.mh-alvo { outline: 3px solid var(--grafite); outline-offset: 1px; }
 .mh-fantasma { position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none; opacity: 0.9; box-shadow: 0 8px 24px rgba(20, 22, 26, 0.25); }
 .mh-prof, .mh-chip, .mh-bloco { touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+/* preenchimento automático */
+.mh-bloco.mh-prop { border-style: dashed; border-width: 2px; border-left-width: 4px; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 5px, transparent 5px 10px); }
+.mh-proposta { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; margin-bottom: 12px; background: #fff; border: 2px dashed var(--grafite-fraco); border-radius: 10px; font-size: 13.5px; }
+.mh-prop-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; }
+.mh-proposta details summary { cursor: pointer; font-weight: 600; color: var(--aviso-chip); }
+.mh-proposta ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
