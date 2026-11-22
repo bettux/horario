@@ -73,7 +73,7 @@ async function carregar() {
   const mats = matrizes.filter((m) => m.curso_id === cursoId).map((m) => m.id);
   const [ts, cs, au, carga] = await Promise.all([
     mats.length ? q(sb.from('turmas').select('id, matriz_id, semestre, identificacao, subturmas(id, nome)').eq('periodo_id', periodoId).gt('semestre', 0).in('matriz_id', mats)) : [],
-    mats.length ? q(sb.from('componentes').select('id, matriz_id, semestre, nome, sigla, carga, modalidade, regra, professor, ordem').in('matriz_id', mats).eq('ativo', true).order('ordem')) : [],
+    mats.length ? q(sb.from('componentes').select('id, matriz_id, semestre, nome, sigla, carga, modalidade, regra, professor, ordem, aulas_conjuntas').in('matriz_id', mats).eq('ativo', true).order('ordem')) : [],
     q(sb.from('v_aulas_horario').select('id, turma_id, componente_id, dia_semana, inicio, quantidade, ambiente_id').eq('periodo_id', periodoId)),
     rpc('carga_todos', { p_periodo: periodoId }),
   ]);
@@ -104,21 +104,27 @@ async function carregar() {
 function alvo(c) { return c.regra === 'pi_extensao' ? 2 : Math.ceil((Number(c.carga) || 0) / semanas); }
 function lancadas(t, cId, sId) { return aulas.filter((a) => a.turma_id === t.id && a.componente_id === cId && a.subturmas.includes(sId)).reduce((n, a) => n + a.quantidade, 0); }
 const falta = (t, c, s) => Math.max(0, alvo(c) - lancadas(t, c.id, s.id));
+// aulas conjuntas (turma inteira) previstas na matriz e quanto ainda falta delas
+function conjFalta(t, c) {
+  if (t.subturmas.length < 2) return 0;
+  const alvoC = Math.min(Number(c.aulas_conjuntas) || 0, alvo(c));
+  const lanc = aulas.filter((a) => a.turma_id === t.id && a.componente_id === c.id && t.subturmas.every((s) => a.subturmas.includes(s.id))).reduce((n, a) => n + a.quantidade, 0);
+  return Math.max(0, Math.min(alvoC - lanc, ...t.subturmas.map((s) => falta(t, c, s))));
+}
 const atribDe = (sId, cId) => atribs.find((x) => x.subturma_id === sId && x.componente_id === cId)?.professor_id || null;
 const compsDaTurma = (t) => comps.filter((c) => c.matriz_id === t.matriz_id && c.semestre === t.semestre && ocupaHorario(c));
 
 function faltam(t) {
   const chips = [];
   for (const c of compsDaTurma(t)) {
-    const grupos = new Map();
+    const cj = conjFalta(t, c);
+    // parte conjunta (só quando a matriz prevê): uma etiqueta da turma inteira
+    if (cj > 0) chips.push({ comp: c, falta: cj, prof: atribDe(t.subturmas[0].id, c.id), subs: [...t.subturmas], conj: true });
+    // o resto é separado por subturma (o normal)
     for (const s of t.subturmas) {
-      const f = falta(t, c, s); if (!f) continue;
-      const p = atribDe(s.id, c.id);
-      const k = `${f}|${p}`;
-      if (!grupos.has(k)) grupos.set(k, { comp: c, falta: f, prof: p, subs: [] });
-      grupos.get(k).subs.push(s);
+      const f = falta(t, c, s) - cj; if (f <= 0) continue;
+      chips.push({ comp: c, falta: f, prof: atribDe(s.id, c.id), subs: [s] });
     }
-    chips.push(...grupos.values());
   }
   return chips;
 }
@@ -188,7 +194,7 @@ function turmaHtml(t) {
         <button type="button" class="btn btn-s" data-limpar="${t.id}">Remover todas as aulas</button></span></div>
     <div class="mh-faltam"><span class="muted">Faltam:</span>${chips.length ? chips.map((ch) => {
       const tn = ch.prof ? tons(prof(ch.prof)?.cor) : null;
-      const subsTxt = ch.subs.length === subs.length && subs.length > 1 ? '' : ` (${ch.subs.map((s) => s.nome).join('+')})`;
+      const subsTxt = ch.subs.length === subs.length && subs.length > 1 ? ' (turma inteira)' : subs.length > 1 ? ` (${ch.subs.map((s) => s.nome).join('+')})` : '';
       return `<span class="mh-chip" draggable="true" data-chip-prof="${ch.prof || ''}" data-chip='${esc(JSON.stringify({ turma: t.id, comp: ch.comp.id, prof: ch.prof, subs: ch.subs.map((s) => s.id) }))}'
         title="${esc(ch.comp.nome)}${subsTxt} · ${ch.prof ? esc(pnome(ch.prof)) : 'sem professor definido'} · faltam ${ch.falta} por semana"
         style="${tn ? `background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}` : ''}">${esc(sigla(ch.comp))}${esc(subsTxt)} · ${ch.prof ? esc(primeiro(ch.prof)) : '<em>sem professor</em>'} · ${ch.falta}</span>`;
@@ -546,16 +552,19 @@ function gerarProposta() {
     const subs = t.subturmas;
     if (!subs.length) continue;
     for (const c of compsDaTurma(t)) {
-      const porSub = subs.map((s) => ({ s, f: falta(t, c, s), p: atribDe(s.id, c.id) })).filter((x) => x.f > 0);
-      if (!porSub.length) continue;
       const semProf = c.professor === 'sem';
-      const juntos = subs.length > 1 && porSub.length === subs.length && porSub.every((x) => x.p === porSub[0].p && x.f === porSub[0].f);
-      const grupos = juntos ? [{ subs: subs.map((s) => s.id), p: porSub[0].p, f: porSub[0].f, conj: true }]
-        : porSub.map((x) => ({ subs: [x.s.id], p: x.p, f: x.f, conj: subs.length === 1 }));
+      const cj = conjFalta(t, c); // aulas da turma inteira previstas na matriz (o normal é 0: tudo separado)
+      const grupos = [];
+      if (cj > 0) grupos.push({ subs: subs.map((s) => s.id), p: atribDe(subs[0].id, c.id), p2: subs.map((s) => atribDe(s.id, c.id)).find((x) => x && x !== atribDe(subs[0].id, c.id)) || null, f: cj, conj: true });
+      for (const s of subs) {
+        const f = falta(t, c, s) - cj;
+        if (f > 0) grupos.push({ subs: [s.id], p: atribDe(s.id, c.id), f, conj: subs.length === 1 });
+      }
+      if (!grupos.length) continue;
       for (const g of grupos) {
         if (!g.p && !semProf && c.professor === 'obrigatorio') { naoCoube.push(`${nomeT(t)} · ${c.nome}: sem professor definido na lista Matéria → Professor.`); continue; }
         const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
-        dem.push({ t, c, subs: g.subs, profs: g.p && !semProf ? [g.p] : [], qtd: g.f, conj: g.conj,
+        dem.push({ t, c, subs: g.subs, profs: g.p && !semProf ? [g.p, g.p2].filter(Boolean) : [], qtd: g.f, conj: g.conj,
           dias: c.modalidade === 'ead_sincrona' || ehExtensao(c) ? [6, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5],
           amb: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null });
       }

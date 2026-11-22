@@ -108,6 +108,8 @@ function dialogoComponente(c, ehPos) {
         <div class="campo"><label for="c-carga">${ehPos ? 'Horas' : 'Aulas no semestre'}</label><input id="c-carga" type="number" min="0" value="${c.carga ?? ''}"></div>
       </div>
       <div class="campo"><label for="c-mod">Modalidade</label><select id="c-mod">${opcoes(MODALIDADES, c.modalidade)}</select></div>
+      ${ehPos ? '' : `<div class="campo"><label for="c-conj">Aulas conjuntas por semana (T1+T2 juntas)</label><input id="c-conj" type="number" min="0" max="10" value="${c.aulas_conjuntas ?? 0}">
+        <span class="muted" style="font-size:12px">0 = T1 e T2 sempre separadas (o normal). Ex.: 5 aulas por semana com 3 teóricas juntas e 2 práticas separadas: coloque 3. Todas juntas: coloque o total.</span></div>`}
       <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
         <div class="campo"><label for="c-prof">Professor</label><select id="c-prof">${opcoes(PROFESSOR, c.professor)}</select></div>
         <div class="campo"><label for="c-regra">Regra</label><select id="c-regra">${opcoes(REGRA, c.regra)}</select></div>
@@ -117,7 +119,7 @@ function dialogoComponente(c, ehPos) {
       const v = (id) => dlg.querySelector(id).value;
       const dados = {
         matriz_id: matrizAtual, nome: v('#c-nome').trim(), sigla: v('#c-sigla').trim() || null, semestre: ehPos ? 0 : +v('#c-sem'), ordem: +v('#c-ordem') || 0,
-        carga: v('#c-carga') === '' ? null : +v('#c-carga'), modalidade: v('#c-mod'), professor: v('#c-prof'), regra: v('#c-regra'),
+        carga: v('#c-carga') === '' ? null : +v('#c-carga'), modalidade: v('#c-mod'), aulas_conjuntas: ehPos ? 0 : Math.max(0, +v('#c-conj') || 0), professor: v('#c-prof'), regra: v('#c-regra'),
         ativo: dlg.querySelector('#c-ativo').checked,
       };
       if (!dados.nome) throw new Error('Informe o nome.');
