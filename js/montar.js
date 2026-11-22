@@ -197,7 +197,7 @@ function turmaHtml(t) {
       const subsTxt = ch.subs.length === subs.length && subs.length > 1 ? ' (turma inteira)' : subs.length > 1 ? ` (${ch.subs.map((s) => s.nome).join('+')})` : '';
       return `<span class="mh-chip" draggable="true" data-chip-prof="${ch.prof || ''}" data-chip='${esc(JSON.stringify({ turma: t.id, comp: ch.comp.id, prof: ch.prof, subs: ch.subs.map((s) => s.id) }))}'
         title="${esc(ch.comp.nome)}${subsTxt} · ${ch.prof ? esc(pnome(ch.prof)) : 'sem professor definido'} · faltam ${ch.falta} por semana"
-        style="${tn ? `background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}` : ''}">${esc(sigla(ch.comp))}${esc(subsTxt)} · ${ch.prof ? esc(primeiro(ch.prof)) : '<em>sem professor</em>'} · ${ch.falta}</span>`;
+        style="${tn ? `background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}` : ''}">${esc(sigla(ch.comp))}${esc(subsTxt)} · ${ch.prof ? esc(primeiro(ch.prof)) : ch.comp.professor === 'obrigatorio' ? '<em>sem professor</em>' : '<span class="muted">qualquer professor</span>'} · ${ch.falta}</span>`;
     }).join('') : '<span class="chip chip-ok">nada pendente</span>'}</div>
     <div class="mh-grade" style="grid-template-columns:44px repeat(${5 * ns}, minmax(0, 1fr)) minmax(70px, 0.9fr);grid-template-rows:auto auto repeat(${HS.length}, 36px)">${g}</div>
   </section>`;
@@ -538,6 +538,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && re
 // ---------- preenchimento automático ----------
 // Encaixa o que falta usando a lista Matéria -> Professor. Ordem: aulas conjuntas (turma inteira) primeiro,
 // depois as mais difíceis de encaixar. Sempre tenta o bloco inteiro num dia; só divide quando não cabe.
+const ehPI = (c) => /^\s*projeto integrador/i.test(c?.nome || '');
 const ehExtensao = (c) => /^\s*(atividades de )?extens/i.test(c?.nome || '');
 function gerarProposta() {
   if (!turmas.length) { avisar('Nenhuma turma neste curso e período.', 'aviso'); return; }
@@ -563,6 +564,7 @@ function gerarProposta() {
       if (!grupos.length) continue;
       for (const g of grupos) {
         if (!g.p && !semProf && c.professor === 'obrigatorio') { naoCoube.push(`${nomeT(t)} · ${c.nome}: sem professor definido na lista Matéria → Professor.`); continue; }
+        if (!g.p && ehPI(c)) { naoCoube.push(`${nomeT(t)} · ${c.nome}: escolha os professores arrastando (cada aula pode ter um professor diferente).`); continue; }
         const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
         dem.push({ t, c, subs: g.subs, profs: g.p && !semProf ? [g.p, g.p2].filter(Boolean) : [], qtd: g.f, conj: g.conj,
           dias: c.modalidade === 'ead_sincrona' || ehExtensao(c) ? [6, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5],
@@ -714,6 +716,7 @@ function dialogoAula(alvoPos, origem, aula = null) {
   const maxSlots = (d, ini) => { const L = d === 6 ? HSAB : HS; const i = L.findIndex((h) => h.numero === ini); return i < 0 ? 1 : L.length - i; };
   const sugerirQtd = () => {
     const c = cs.find((x) => x.id === compId); if (!c) return 2;
+    if (ehPI(c)) return 1; // PI: uma aula por professor, normalmente
     const f = Math.max(...subs.filter((s) => subsSel.includes(s.id)).map((s) => falta(t, c, s)), 0);
     return Math.max(1, Math.min(f || 1, maxSlots(alvoPos.dia, alvoPos.slot)));
   };
