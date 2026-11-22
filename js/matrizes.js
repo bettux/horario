@@ -67,16 +67,17 @@ async function carregarComponentes() {
     </div>
     ${ehPos ? '' : `<div class="abas" role="tablist" style="padding:0 16px">${semestres.map((s) => `<button class="aba" role="tab" data-s="${s}" aria-selected="${s === semestreAtual}">${s}º semestre</button>`).join('')}</div>`}
     <div class="tabela-box"><table>
-      <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th><th>Regra</th><th>Professor</th><th></th></tr></thead>
+      <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th>${ehPos ? '' : '<th>T1+T2 juntas</th>'}<th>Regra</th><th>Professor</th><th></th></tr></thead>
       <tbody>${lista.length ? lista.map((c) => `<tr class="${c.ativo ? '' : 'inativo'}">
         <td>${esc(c.nome)}${c.ativo ? '' : ' <span class="chip chip-neu">inativo</span>'}</td>
         <td class="muted">${esc(c.sigla || '')}</td>
         <td>${c.modalidade === 'presencial' || c.modalidade === 'pos' ? MODALIDADES[c.modalidade] : `<span class="chip chip-aviso">${MODALIDADES[c.modalidade]}</span>`}</td>
         <td class="num" style="text-align:right">${c.carga ?? '—'}${c.carga != null ? unidade : ''}</td>
+        ${ehPos ? '' : `<td>${Number(c.aulas_conjuntas) > 0 ? `<span class="chip chip-ok">${c.aulas_conjuntas} por semana</span>` : '<span class="muted">separadas</span>'}</td>`}
         <td>${c.regra === 'pi_extensao' ? '<span class="chip chip-red">PI / Extensão</span>' : '<span class="muted">Normal</span>'}</td>
         <td>${PROFESSOR[c.professor]}</td>
         <td><div class="acoes"><button class="btn btn-s" data-editar="${c.id}">Editar</button></div></td></tr>`).join('')
-        : '<tr><td colspan="7" class="muted">Nenhum componente neste semestre.</td></tr>'}</tbody></table></div>
+        : `<tr><td colspan="${ehPos ? 7 : 8}" class="muted">Nenhum componente neste semestre.</td></tr>`}</tbody></table></div>
     <div class="barra" style="justify-content:space-between;border-top:1px solid var(--linha)">
       <span class="muted" style="font-size:13px">Componente já usado em aulas não pode ser excluído, só desativado.</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">${ehPos ? '' : '<button class="btn" id="novo-sem">Novo semestre</button>'}<button class="btn btn-p" id="novo-comp">Adicionar componente</button></div>
