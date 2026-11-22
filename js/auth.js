@@ -1,5 +1,5 @@
-import { sb, rpc } from './supabase.js';
-import { DOMINIO_LOGIN } from './config.js';
+import { sb, rpc } from './supabase.js?v=202611221335';
+import { DOMINIO_LOGIN } from './config.js?v=202611221335';
 
 export const emailDoNif = (nif) => `${String(nif).trim()}@${DOMINIO_LOGIN}`;
 

@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js';
-import { tons } from './cores.js';
-import { sb, q, rpc } from './supabase.js';
-import { esc, DIAS, mostrarAlerta } from './util.js';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611221335';
+import { tons } from './cores.js?v=202611221335';
+import { sb, q, rpc } from './supabase.js?v=202611221335';
+import { esc, DIAS, mostrarAlerta } from './util.js?v=202611221335';
 
 const { main } = await iniciarPagina('grade');
 

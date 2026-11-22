@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js';
-import { rpc } from './supabase.js';
-import { esc, parseData, ddmm, somaDias, isoData, segundaDaSemana, duracao } from './util.js';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221335';
+import { rpc } from './supabase.js?v=202611221335';
+import { esc, parseData, ddmm, somaDias, isoData, segundaDaSemana, duracao } from './util.js?v=202611221335';
 
 const { main } = await iniciarPagina('carga');
 
