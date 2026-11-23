@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611221440';
-import { sb, q, rpc } from './supabase.js?v=202611221440';
-import { esc, DIAS } from './util.js?v=202611221440';
-import { tons } from './cores.js?v=202611221440';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611222334';
+import { sb, q, rpc } from './supabase.js?v=202611222334';
+import { esc, DIAS } from './util.js?v=202611222334';
+import { tons } from './cores.js?v=202611222334';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -63,7 +63,7 @@ let proposta = []; // aulas sugeridas pelo preenchimento automático (ainda não
 let naoCoube = [];
 
 $m('#curso').innerHTML = cursos.map((c) => `<option value="${c.id}">${esc(c.sigla ? `${c.sigla} · ${c.nome}` : c.nome)}</option>`).join('');
-try { const c = localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) $m('#curso').value = c; } catch { /* ignora */ }
+try { const c = new URLSearchParams(location.search).get('curso') || localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) { $m('#curso').value = c; localStorage.setItem('montar-curso', c); } } catch { /* ignora */ }
 cursoId = $m('#curso').value;
 
 // ---------- dados ----------
@@ -233,7 +233,7 @@ function desenhar() {
   area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
     const t = turmas.find((x) => x.id === b.dataset.limpar);
     const n = aulas.filter((a) => a.turma_id === t.id).length;
-    if (!n) { avisar('Esta turma ainda não tem aulas na grade.', 'aviso'); return; }
+    if (!n) { avisar('Esta turma ainda não tem aulas no horário.', 'aviso'); return; }
     const nome = `${cursos.find((c) => c.id === cursoId)?.sigla || ''} ${t.semestre}º semestre · ${t.identificacao}`;
     if (!(await confirmar(`Remover todas as aulas?`, `Isso apaga as ${n} aula(s) da grade da turma ${nome}. A lista de professores das matérias é mantida, e o histórico guarda o que foi apagado.`, 'Remover todas', true))) return;
     const antes = aulas.filter((a) => a.turma_id === t.id).map(snapAula);

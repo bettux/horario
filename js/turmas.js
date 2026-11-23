@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611221440';
-import { sb, q, rpc } from './supabase.js?v=202611221440';
-import { esc } from './util.js?v=202611221440';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611222334';
+import { sb, q, rpc } from './supabase.js?v=202611222334';
+import { esc } from './util.js?v=202611222334';
 
 const { main } = await iniciarPagina('turmas');
 
@@ -54,7 +54,7 @@ async function listar() {
       return `<tr><td>${esc(rotuloMatriz(m))}</td><td>${pos ? 'Pós' : t.semestre + 'º'}</td><td>${esc(t.identificacao)}</td>
         <td>${pos ? '<span class="muted">—</span>' : t.subturmas.map((s) => esc(s.nome)).sort().join(', ') || '<span class="chip chip-erro">nenhuma</span>'}</td>
         <td class="num">${n}</td>
-        <td>${usada ? `<span class="chip chip-ok">${pos ? t.ofertas_pos.length + ' módulo(s)' : t.aulas.length + ' aula(s) na grade'}</span>` : '<span class="chip chip-aviso">Sem alocação</span>'}</td>
+        <td>${usada ? `<span class="chip chip-ok">${pos ? t.ofertas_pos.length + ' módulo(s)' : t.aulas.length + ' aula(s) no horário'}</span>` : '<span class="chip chip-aviso">Sem alocação</span>'}</td>
         <td><div class="acoes">${pos ? '' : `<button class="btn btn-s" data-profs="${t.id}">Professores</button>`}<button class="btn btn-s" data-editar="${t.id}">Editar</button>${usada ? '' : `<button class="btn btn-s" data-excluir="${t.id}">Excluir</button>`}</div></td></tr>`;
     }).join('') : '<tr><td colspan="7" class="muted">Nenhuma turma neste período.</td></tr>'}</tbody></table>`;
 
@@ -103,7 +103,7 @@ function dialogoTurma(t) {
       if (!pos) {
         for (const r of removidas) {
           try { await q(sb.from('subturmas').delete().eq('id', r.id)); }
-          catch { throw new Error(`A subturma ${r.nome} tem aulas na grade e não pode ser removida.`); }
+          catch { throw new Error(`A subturma ${r.nome} tem aulas no horário e não pode ser removida.`); }
         }
         const novas = subs.filter((s) => !s.id).map((s) => ({ turma_id: id, nome: s.nome }));
         if (novas.length) await q(sb.from('subturmas').insert(novas));
@@ -175,8 +175,8 @@ async function dialogoProfessores(t) {
     ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>
       <td>${c.modalidade === 'ead_assincrona' ? '<span class="muted">—</span>' : `<input type="number" min="0" max="${porSemana(c)}" value="${conjDe(c.id)}" data-conj="${c.id}" style="width:64px" aria-label="Aulas conjuntas por semana de ${esc(c.nome)}"> <span class="muted" style="font-size:12px">de ${porSemana(c)}</span>`}</td>` : ''}</tr>`).join('');
   const corpo = `
-    <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma${subs.length > 1 ? ` e quantas aulas por semana são da turma inteira (${subs.map((s) => esc(s.nome)).join('+')} juntas; 0 = separadas, o normal)` : ''}. Vale só para este semestre. Isso não cria aulas na grade; serve de base para montar o horário.</p>
-    ${algumSugerido ? '<p style="margin:0 0 4px;font-size:12.5px;color:var(--aviso-chip)">Os campos com fundo azul foram sugeridos a partir das aulas que já estão na grade. Confira e salve.</p>' : ''}
+    <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma${subs.length > 1 ? ` e quantas aulas por semana são da turma inteira (${subs.map((s) => esc(s.nome)).join('+')} juntas; 0 = separadas, o normal)` : ''}. Vale só para este semestre. Isso não cria aulas no horário; serve de base para montar o horário.</p>
+    ${algumSugerido ? '<p style="margin:0 0 4px;font-size:12.5px;color:var(--aviso-chip)">Os campos com fundo azul foram sugeridos a partir das aulas que já estão no horário. Confira e salve.</p>' : ''}
     <div class="tabela-box" style="max-height:60vh;overflow:auto"><table style="min-width:${300 + subs.length * 200}px">
       <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:190px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? `<th></th><th title="Aulas por semana com ${subs.map((s) => esc(s.nome)).join(' e ')} juntas. 0 = separadas.">${subs.map((s) => esc(s.nome)).join('+')} juntas / semana</th>` : ''}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${subs.length + 3}" class="muted">A matriz não tem matérias com professor neste semestre.</td></tr>`}</tbody></table></div>`;
@@ -228,7 +228,7 @@ function dialogoCopiar() {
         p_disponibilidades: d.querySelector('#cp-disp').checked, p_aulas: d.querySelector('#cp-aulas').checked });
       const partes = [`${r.turmas_criadas} turma(s) criada(s)`, r.turmas_existentes ? `${r.turmas_existentes} já existia(m)` : '',
         `${r.atribuicoes} professor(es) de matéria`, d.querySelector('#cp-disp').checked ? `${r.disponibilidades} horário(s) de disponibilidade` : '',
-        d.querySelector('#cp-aulas').checked ? `${r.aulas} aula(s) na grade` : ''].filter(Boolean);
+        d.querySelector('#cp-aulas').checked ? `${r.aulas} aula(s) no horário` : ''].filter(Boolean);
       avisar(`Cópia feita: ${partes.join(', ')}.`);
       listar();
     },

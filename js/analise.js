@@ -1,5 +1,5 @@
 // Leitura do período inteiro para Dashboard e Auditoria (somente leitura)
-import { sb, q } from './supabase.js?v=202611221440';
+import { sb, q } from './supabase.js?v=202611222334';
 
 export async function carregarAnalise(periodo) {
   const [cursos, matrizes, turmas, comps, aulas, ambientes] = await Promise.all([
@@ -40,7 +40,7 @@ export async function carregarAnalise(periodo) {
       const aulasK = aulas.filter((a) => a.turma_id === t.id && a.componente_id === k.id);
       if (k.regra === 'pi_extensao') {
         if (aulasK.length) completos++;
-        else if (k.professor !== 'opcional') avisos.push(`${k.nome} ainda não tem aula na grade.`);
+        else if (k.professor !== 'opcional') avisos.push(`${k.nome} ainda não tem aula no horário.`);
         continue;
       }
       if (k.carga == null) { completos++; continue; }

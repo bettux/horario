@@ -117,6 +117,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 - Cadastro com nome, NIF (único), cor (paleta de 36 cores, com sugestão automática de uma cor livre), ativo e perfil.
 - **Disponibilidade por período:** dias e faixas de horário. Dia desmarcado significa indisponível.
 - **Matéria → Professor** (`atribuicoes`): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.
+- **Excluir professor:** botão no cadastro. Só exclui quem **não tem aulas nem módulos de pós no período ativo ou em períodos futuros**; quem tem aulas em períodos encerrados deve ser inativado, para preservar o histórico. A confirmação exige digitar o NIF. Junto são apagados a disponibilidade, as atividades, as indicações em Matéria → Professor e o login. Ninguém exclui o próprio cadastro nem o último ADM.
 - **Proteção dos ADMs:** ninguém pode se rebaixar ou se desativar, e o último ADM não pode ser removido nem rebaixado.
 
 ### 3.7 Conflitos e validações
@@ -360,6 +361,8 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 | `salvar_atividade(id, prof, periodo, descricao, quantidade, frequencia, observacao, tipo)` | Cria ou altera uma atividade complementar |
 | `salvar_atribuicoes(turma, itens jsonb)` | Substitui a lista Matéria → Professor da turma |
 | `copiar_periodo(origem, destino, disponibilidades, aulas)` | Cópia de período (ver 3.12) |
+| `exclusao_professor(prof)` | Lista o que impede a exclusão e o que será apagado junto |
+| `excluir_professor(prof)` | Exclui o professor (só sem impedimentos) e devolve o login para a Edge Function apagar |
 | `juntar_ambientes(origem, destino)` | Une dois ambientes (nomes parecidos) |
 | `ambiente_id(nome)` | Acha ou cria o ambiente pelo nome |
 
@@ -414,7 +417,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | **Montar horário** (`montar.html`) | ADM | Tela principal da grade (3.10 e 3.11) | `gravar_aula`, `remover_aula`, `limpar_turma`, `carga_todos`, Realtime |
 | Planejamento da pós (`pos.html`) | ADM | Módulos e encontros por turma, nos modos Semana e Sábado, pulando dias não letivos | `salvar_oferta_pos` |
 | Carga docente (`carga.html`) | ADM | Carga semana a semana de todos, com o detalhe do cálculo | `carga_todos` |
-| Cadastro de professores (`professores.html`) | ADM | Nome, NIF, cor (36 cores), ativo, perfil; criar acesso | tabela `professores`, Edge `criar_acesso` |
+| Cadastro de professores (`professores.html`) | ADM | Nome, NIF, cor (36 cores), ativo, perfil; criar acesso; excluir professor | tabela `professores`, `exclusao_professor`, Edge `criar_acesso` e `excluir_professor` |
 | Disponibilidade (`disponibilidade.html`) | ADM | Dias e horários por período | `salvar_disponibilidade` |
 | Atividades complementares (`atividades.html`) | ADM | Atividades com tipo e frequência | `salvar_atividade` |
 | Agenda docente (`agenda.html`) | ADM | Semana de qualquer professor | `agenda_professor` |
@@ -463,6 +466,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | `resetar_senha` | ADM | Volta para a senha provisória e encerra as sessões |
 | `bloquear_acesso` | ADM | Bloqueia o login |
 | `reativar_acesso` | ADM | Desbloqueia o login |
+| `excluir_professor` | ADM | Chama `excluir_professor` no banco e apaga o login |
 
 ---
 
@@ -488,7 +492,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 ## 11. Operação e manutenção
 
 - **Publicar uma mudança no site:** rodar `./versao.sh` (troca o `?v=` de todos os arquivos), fazer commit e enviar para o ramo `main`. O GitHub Pages publica em 1 a 3 minutos.
-- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `28_extensao_sem_disponibilidade`.
+- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `29_excluir_professor`.
 - **Período novo:**
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;

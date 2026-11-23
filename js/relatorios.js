@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611221440';
-import { sb, q, rpc } from './supabase.js?v=202611221440';
-import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611221440';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611222334';
+import { sb, q, rpc } from './supabase.js?v=202611222334';
+import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611222334';
 
 // Relatórios de aulas por professor e por turma, prontos para imprimir ou salvar em PDF (A4 paisagem)
 const { main } = await iniciarPagina('relatorios');

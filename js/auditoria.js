@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611221440';
-import { rpc } from './supabase.js?v=202611221440';
-import { esc } from './util.js?v=202611221440';
-import { carregarAnalise } from './analise.js?v=202611221440';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611222334';
+import { rpc } from './supabase.js?v=202611222334';
+import { esc } from './util.js?v=202611222334';
+import { carregarAnalise } from './analise.js?v=202611222334';
 
 const { main } = await iniciarPagina('auditoria');
 
@@ -49,8 +49,8 @@ async function verificar() {
     itens = erros.map((e) => ({ tipo: 'erro', onde: '—', texto: e.problema }));
     for (const t of an.turmas) {
       const s = t.pos ? an.situacaoPos(t) : an.situacaoGrad(t);
-      if (!t.pos && !s.aulas) itens.push({ tipo: 'aviso', onde: t.rotulo, texto: 'Turma sem nenhuma aula na grade.' });
-      else for (const a of s.avisos) itens.push({ tipo: 'aviso', onde: t.rotulo, texto: a, pos: t.pos });
+      if (!t.pos && !s.aulas) itens.push({ tipo: 'aviso', onde: t.rotulo, texto: 'Turma sem nenhuma aula no horário.', curso: t.curso?.id });
+      else for (const a of s.avisos) itens.push({ tipo: 'aviso', onde: t.rotulo, texto: a, pos: t.pos, curso: t.curso?.id });
       if (t.pos && !s.ofertas) itens.push({ tipo: 'aviso', onde: t.rotulo, texto: 'Nenhum módulo planejado para esta turma de pós.', pos: true });
     }
     for (const g of an.ambParecidos) itens.push({ tipo: 'aviso', onde: 'Ambientes', texto: `Nomes parecidos: ${g.map((a) => `"${a.nome}" (${a.aulas + a.encontros} aulas)`).join(' e ')}. Podem ser o mesmo ambiente.` });
@@ -68,7 +68,7 @@ function desenhar() {
   $m('#lista').innerHTML = lista.length ? `<table style="min-width:760px">
     <thead><tr><th>Tipo</th><th>Onde</th><th style="width:55%">Problema</th><th>O que fazer</th></tr></thead>
     <tbody>${lista.map((i) => {
-      const [href, rot] = i.pos ? ['pos.html', 'Abrir planejamento da pós'] : i.onde === 'Ambientes' ? ['configuracoes.html', 'Padronizar ambientes'] : i.texto.startsWith('Turma sem') || i.tipo === 'aviso' ? ['montar.html', 'Abrir Montar horário'] : destino(i.texto);
+      const [href, rot] = i.pos ? ['pos.html', 'Abrir planejamento da pós'] : i.onde === 'Ambientes' ? ['configuracoes.html', 'Padronizar ambientes'] : i.texto.startsWith('Turma sem') || i.tipo === 'aviso' ? [`montar.html${i.curso ? '?curso=' + i.curso : ''}`, 'Abrir Montar horário'] : destino(i.texto);
       return `<tr><td>${i.tipo === 'erro' ? '<span class="chip chip-erro">Erro</span>' : '<span class="chip chip-aviso">Aviso</span>'}</td>
         <td>${esc(i.onde)}</td><td style="line-height:1.45">${esc(i.texto)}</td><td style="white-space:nowrap"><a href="${href}" style="font-weight:600">${rot}</a></td></tr>`;
     }).join('')}</tbody></table>`

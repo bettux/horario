@@ -1,5 +1,5 @@
-import { sb, rpc } from './supabase.js?v=202611221440';
-import { DOMINIO_LOGIN } from './config.js?v=202611221440';
+import { sb, rpc } from './supabase.js?v=202611222334';
+import { DOMINIO_LOGIN } from './config.js?v=202611222334';
 
 export const emailDoNif = (nif) => `${String(nif).trim()}@${DOMINIO_LOGIN}`;
 
@@ -49,9 +49,15 @@ export async function sair() {
 export async function contas(acao, dados = {}) {
   const { data, error } = await sb.functions.invoke('gerenciar-usuarios', { body: { acao, ...dados } });
   if (error) {
-    let msg = 'Não foi possível concluir a operação.';
-    try { const corpo = await error.context.json(); if (corpo?.erro) msg = corpo.erro; } catch { /* sem corpo */ }
-    throw new Error(msg);
+    let msg = 'Não foi possível concluir a operação.', linhas = [];
+    try {
+      const corpo = await error.context.json();
+      if (corpo?.erro) msg = corpo.erro;
+      if (corpo?.detalhe) linhas = String(corpo.detalhe).split('\n').filter(Boolean);
+    } catch { /* sem corpo */ }
+    const e = new Error(linhas.length ? 'Não foi possível excluir:' : msg);
+    e.linhas = linhas;
+    throw e;
   }
   return data;
 }

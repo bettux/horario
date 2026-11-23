@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro } from './pagina.js?v=202611221440';
-import { sb, q, rpc } from './supabase.js?v=202611221440';
-import { esc, DIAS } from './util.js?v=202611221440';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro } from './pagina.js?v=202611222334';
+import { sb, q, rpc } from './supabase.js?v=202611222334';
+import { esc, DIAS } from './util.js?v=202611222334';
 
 const { main } = await iniciarPagina('disponibilidade');
 

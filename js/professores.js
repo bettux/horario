@@ -1,8 +1,8 @@
-import { iniciarPagina, avisar, mostrarErro } from './pagina.js?v=202611221440';
-import { sb, q, rpc } from './supabase.js?v=202611221440';
-import { contas } from './auth.js?v=202611221440';
-import { esc, mostrarAlerta } from './util.js?v=202611221440';
-import { CORES_PROFESSORES, proximaCor } from './cores.js?v=202611221440';
+import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611222334';
+import { sb, q, rpc } from './supabase.js?v=202611222334';
+import { contas } from './auth.js?v=202611222334';
+import { esc, mostrarAlerta } from './util.js?v=202611222334';
+import { CORES_PROFESSORES, proximaCor } from './cores.js?v=202611222334';
 
 const { perfil, main } = await iniciarPagina('professores');
 
@@ -10,7 +10,7 @@ const { perfil, main } = await iniciarPagina('professores');
 main.innerHTML = `
   <header class="cabecalho">
     <div><h1>Cadastro de professores</h1>
-    <p class="sub">Inativar não apaga o histórico de aulas do professor.</p></div>
+    <p class="sub">Inativar não apaga o histórico de aulas do professor. Excluir só é possível para quem não tem aulas no período ativo.</p></div>
     <button class="btn btn-p" id="novo">Novo professor</button>
   </header>
   <div class="duas-colunas">
@@ -84,9 +84,13 @@ function abrirForm(p) {
            <p class="muted" style="margin:0;font-size:12.5px;line-height:1.5;padding-left:26px">Login: o NIF. Senha provisória: NIF + cfp109, válida por 7 dias, com troca obrigatória no primeiro acesso.</p>`}
     </div>
     <div id="msg" class="oculto" role="alert"></div>
-    <div style="display:flex;gap:10px"><button class="btn btn-p" type="submit">Salvar professor</button><button class="btn" type="button" id="cancelar">Cancelar</button></div>`;
+    <div style="display:flex;gap:10px"><button class="btn btn-p" type="submit">Salvar professor</button><button class="btn" type="button" id="cancelar">Cancelar</button></div>
+    ${p ? `<div style="border-top:1px solid var(--linha);padding-top:14px;display:flex;flex-direction:column;gap:6px">
+      <button class="btn btn-p btn-perigo" type="button" id="excluir" style="align-self:flex-start">Excluir professor</button>
+      <span class="muted" style="font-size:12px;line-height:1.45">Só é possível excluir quem não tem nenhuma aula no período ativo nem em períodos futuros. Para quem já deu aula, prefira desmarcar "Professor ativo".</span></div>` : ''}`;
   form.querySelectorAll('[data-cor]').forEach((b) => b.addEventListener('click', () => form.querySelectorAll('[data-cor]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))));
   form.querySelector('#cancelar').addEventListener('click', () => abrirForm(null));
+  form.querySelector('#excluir')?.addEventListener('click', () => excluir(p, form.querySelector('#msg')));
   form.querySelector('#nome').focus();
 }
 
@@ -132,6 +136,38 @@ main.querySelector('#form').addEventListener('submit', async (ev) => {
     botao.disabled = false;
   }
 });
+
+// ---------- excluir professor (com conferência e confirmação pelo NIF) ----------
+async function excluir(p, msg) {
+  msg.classList.add('oculto');
+  let info;
+  try { [info] = await rpc('exclusao_professor', { p_professor: p.id }); }
+  catch (e) { mostrarErro(msg, e); return; }
+  if (info.impedimentos?.length) {
+    mostrarAlerta(msg, 'erro', `${p.nome} não pode ser excluído:`, info.impedimentos);
+    return;
+  }
+  const apaga = info.apaga || [];
+  const dlg = abrirDialogo({
+    titulo: 'Excluir professor definitivamente?',
+    confirmar: 'Excluir definitivamente',
+    perigo: true,
+    corpo: `<div class="alerta alerta-erro" style="margin:0 0 12px"><strong>Atenção: esta ação não pode ser desfeita.</strong></div>
+      <p style="margin:0 0 8px;line-height:1.55">O cadastro de <strong>${esc(p.nome)}</strong> (NIF ${esc(p.nif)}) será apagado. Ele não tem aulas no período ativo nem nos próximos.</p>
+      ${apaga.length ? `<p style="margin:0 0 4px">Também serão apagados:</p><ul style="margin:0 0 10px;padding-left:20px;line-height:1.6">${apaga.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="campo"><label for="conf-nif">Para confirmar, digite o NIF do professor</label><input id="conf-nif" inputmode="numeric" autocomplete="off"></div>`,
+    aoConfirmar: async (d) => {
+      if (d.querySelector('#conf-nif').value.replace(/\D/g, '') !== p.nif) throw new Error('O NIF digitado não confere.');
+      const r = await contas('excluir_professor', { professor_id: p.id });
+      avisar(`${p.nome} foi excluído.${r?.acesso_removido ? ' O login também foi apagado.' : ''}`);
+      await carregar();
+      abrirForm(null);
+    },
+  });
+  const ok = dlg.querySelector('[data-ok]'), campo = dlg.querySelector('#conf-nif');
+  ok.disabled = true;
+  campo.addEventListener('input', () => { ok.disabled = campo.value.replace(/\D/g, '') !== p.nif; });
+}
 
 main.querySelector('#novo').addEventListener('click', () => abrirForm(null));
 main.querySelector('#busca').addEventListener('input', listar);
