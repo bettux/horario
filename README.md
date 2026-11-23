@@ -25,3 +25,9 @@ GitHub → Settings → Pages → Source: *Deploy from a branch* → branch `mai
 
 ## Testar localmente
 Qualquer servidor estático (ex.: Live Server do VS Code) abrindo `index.html`.
+
+## Documentação
+Regras de negócio, tabelas do banco, telas e funções na pasta [`documentacao/`](documentacao/):
+- [`DOCUMENTACAO.md`](documentacao/DOCUMENTACAO.md): texto original (lido direto no GitHub)
+- [`DOCUMENTACAO.html`](documentacao/DOCUMENTACAO.html): versão para o navegador
+- [`DOCUMENTACAO.pdf`](documentacao/DOCUMENTACAO.pdf): versão para imprimir

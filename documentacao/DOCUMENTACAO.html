@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentação do sistema</title>
+<style>
+:root{--t:#1A1C20;--s:#5B5F68;--l:#E3E3E7;--r:#E0283F;--f:#F6F7F9;--bg:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--t:#E8E9EC;--s:#A3A7B0;--l:#33363C;--f:#1E2025;--bg:#15171A}}
+body{margin:0;background:var(--bg);color:var(--t);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;line-height:1.25;border-bottom:3px solid var(--r);padding-bottom:10px}
+h2{font-size:20px;margin-top:40px;padding-top:8px;border-top:1px solid var(--l)}
+h3{font-size:16px;margin-top:24px}
+a{color:var(--r)}
+code{font:13px ui-monospace,Consolas,monospace;background:var(--f);padding:1px 5px;border-radius:4px}
+pre{background:var(--f);padding:12px 14px;border-radius:8px;overflow-x:auto} pre code{padding:0;background:none}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--l);padding:6px 9px;text-align:left;vertical-align:top} th{background:var(--f)}
+hr{border:0;border-top:1px solid var(--l)}
+@media print{body{font-size:11.5px} main{max-width:none;padding:0} h2{break-after:avoid} table{display:table;font-size:10.5px} tr{break-inside:avoid} a{color:inherit;text-decoration:none}}
+</style></head><body><main>
+<h1 id="sistema-de-alocacao-de-aula-graduacao-e-pos-graduacao-vila-mariana">Sistema de alocação de aula Graduação e Pós-Graduação · Vila Mariana</h1>
+<p>Documentação de regras de negócio, banco de dados, telas e funções.
+Atualizada em 22/11/2026.</p>
+<hr />
+<h2 id="sumario">Sumário</h2>
+<ol>
+<li><a href="#sumario">Visão geral</a></li>
+<li><a href="#1-visao-geral">Arquitetura e segurança</a></li>
+<li><a href="#2-arquitetura-e-seguranca">Regras de negócio</a></li>
+<li><a href="#3-regras-de-negocio">Banco de dados: tabelas</a></li>
+<li><a href="#4-banco-de-dados-tabelas">Banco de dados: views, gatilhos e armazenamento</a></li>
+<li><a href="#5-banco-de-dados-views-gatilhos-e-armazenamento">Banco de dados: funções</a></li>
+<li><a href="#6-banco-de-dados-funcoes">Telas</a></li>
+<li><a href="#7-telas">Arquivos de código do site</a></li>
+<li><a href="#8-arquivos-de-codigo-do-site">Funções de servidor (Edge Functions)</a></li>
+<li><a href="#9-funcoes-de-servidor-edge-functions">Planilha da coordenação (Criar planilha)</a></li>
+<li><a href="#10-planilha-da-coordenacao-criar-planilha">Operação e manutenção</a></li>
+</ol>
+<hr />
+<h2 id="1-visao-geral">1. Visão geral</h2>
+<p>Sistema da Escola SENAI Vila Mariana para:</p>
+<ul>
+<li>montar o horário da <strong>graduação</strong> (aulas noturnas de 50 minutos e aulas de sábado) e planejar os encontros da <strong>pós-graduação</strong>;</li>
+<li>calcular a <strong>carga docente</strong> semanal de cada professor, com o limite de 40 aulas equivalentes;</li>
+<li>impedir conflitos de professor, turma e sala;</li>
+<li>mostrar a cada professor <strong>somente as suas aulas</strong>;</li>
+<li>gerar a <strong>planilha confidencial da coordenação</strong> em Excel, os relatórios e o histórico de alterações.</li>
+</ul>
+<p><strong>Perfis</strong></p>
+<table>
+<thead>
+<tr>
+<th>Perfil</th>
+<th>Quem é</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ADM</td>
+<td>coordenação</td>
+<td>Acessa tudo. Pode promover professores a ADM.</td>
+</tr>
+<tr>
+<td>Professor</td>
+<td>docente</td>
+<td>Vê só <strong>Minhas aulas</strong> dos períodos liberados, o calendário escolar e os dias letivos.</td>
+</tr>
+</tbody>
+</table>
+<p>O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no login.</p>
+<hr />
+<h2 id="2-arquitetura-e-seguranca">2. Arquitetura e segurança</h2>
+<table>
+<thead>
+<tr>
+<th>Parte</th>
+<th>Tecnologia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site</td>
+<td>Páginas estáticas no <strong>GitHub Pages</strong> (repositório <code>bettux/horario</code>), em HTML, CSS e JavaScript puro com módulos ES</td>
+</tr>
+<tr>
+<td>Banco e login</td>
+<td><strong>Supabase</strong> (projeto <code>alocacao-docente</code>): Postgres, Auth, Storage, Realtime e Edge Functions</td>
+</tr>
+<tr>
+<td>Biblioteca do banco</td>
+<td><code>@supabase/supabase-js@2.45.4</code> via esm.sh</td>
+</tr>
+<tr>
+<td>Excel</td>
+<td>ExcelJS 4.4.0 (cdn.jsdelivr), carregado só ao gerar a planilha</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Login</strong></p>
+<ul>
+<li>O login é feito pelo <strong>NIF</strong>. Internamente, o e-mail é <code>NIF@horario.local</code>; não existe login por e-mail real.</li>
+<li><strong>Senha provisória:</strong> NIF + <code>cfp109</code>, válida por <strong>7 dias</strong>. A troca é obrigatória no primeiro acesso, e "redefinir senha" volta para o mesmo padrão.</li>
+<li><strong>Senha nova:</strong> pelo menos 8 caracteres, com letras e números, e sem conter o NIF.</li>
+<li>Não há cadastro aberto: só o ADM cria acessos.</li>
+</ul>
+<p><strong>Segurança no banco (RLS)</strong></p>
+<ul>
+<li>Todas as tabelas têm RLS forçado.</li>
+<li>Só o ADM, conferido por <code>is_admin()</code>, tem acesso direto às tabelas.</li>
+<li>O professor só lê dados por funções <code>SECURITY DEFINER</code> presas ao próprio usuário: <code>meu_perfil</code>, <code>meus_periodos</code>, <code>minhas_aulas</code> e <code>dias_letivos</code>.</li>
+<li>Enquanto a senha provisória não for trocada, <code>troca_senha_pendente()</code> bloqueia as funções do professor.</li>
+<li>A chave <code>service_role</code> fica <strong>somente</strong> na Edge Function, nunca no site.</li>
+<li>O site usa apenas a chave pública (publishable).</li>
+</ul>
+<p><strong>Backup do sistema antigo:</strong> ramo <code>versao-1</code> no GitHub.</p>
+<hr />
+<h2 id="3-regras-de-negocio">3. Regras de negócio</h2>
+<h3 id="31-periodos-letivos">3.1 Períodos letivos</h3>
+<ul>
+<li>Cada período tem ano, semestre (1 ou 2), início, fim e <strong>semanas letivas</strong>. O padrão é 20 semanas, e o número é usado no cálculo da carga e da quantidade de aulas por semana.</li>
+<li><strong>Visível para professores:</strong> o professor só enxerga os períodos marcados, e a trava também está no banco. Período novo começa <strong>oculto</strong>. O ADM vê todos.</li>
+<li><strong>Calendário escolar em PDF:</strong> um arquivo por período, privado, que só usuários logados baixam.</li>
+</ul>
+<h3 id="32-horarios">3.2 Horários</h3>
+<ul>
+<li><strong>Graduação, dias de semana:</strong> 5 aulas de 50 minutos: 18:25, 19:15, 20:20, 21:10 e 22:00 (até 22:50).</li>
+<li><strong>Graduação, sábado:</strong> 8 aulas: 09:00, 09:50, 10:55, 11:45, 13:00, 13:50, 14:40 e 15:45 (até 17:25). O sábado é usado por EAD e Extensão.</li>
+<li><strong>Pós, durante a semana:</strong> turma de 10 semanas das 19:00 às 22:00 (3 h); turma de 8 semanas das 19:00 às 22:45 (3h45).</li>
+<li><strong>Pós, sábado:</strong> manhã das 08:00 às 12:00 e tarde das 13:00 às 17:00 (3h45 de aula + 15 min de intervalo cada), ou integral.</li>
+<li>Os modos Semana e Sábado da pós são independentes.</li>
+</ul>
+<h3 id="33-turmas-subturmas-e-aulas-conjuntas">3.3 Turmas, subturmas e aulas conjuntas</h3>
+<ul>
+<li>A turma pertence a um período, a uma matriz e a um semestre. A <strong>identificação</strong> é o código da turma, por exemplo <code>CTSADS226N1</code>.</li>
+<li>A turma tem subturmas (T1, T2…). Toda aula precisa indicar para quais subturmas é.</li>
+<li><strong>T1 e T2 são separadas por padrão.</strong> A quantidade de <strong>aulas conjuntas por semana</strong> (T1+T2 juntas) é definida <strong>por turma, em cada semestre</strong>, em Gestão de turmas &gt; Professores (tabela <code>turma_conjuntas</code>). Ela não fica na matriz.</li>
+<li>Uma subturma não pode ter duas aulas ao mesmo tempo.</li>
+</ul>
+<h3 id="34-componentes-materias-e-carga">3.4 Componentes (matérias) e carga</h3>
+<ul>
+<li><strong>Modalidade:</strong> presencial, EAD síncrona, EAD assíncrona, pós ou TCC. Só presencial e EAD síncrona ocupam horário na grade.</li>
+<li><strong>Professor:</strong></li>
+<li>obrigatório: a aula precisa de professor;</li>
+<li>opcional: pode ficar sem professor;</li>
+<li>sem: não leva professor.</li>
+<li><strong>Aulas por semana de uma matéria:</strong> carga do semestre ÷ semanas letivas, arredondado para cima.</li>
+<li><strong>Carga completa:</strong> a soma das aulas da subturma × semanas letivas não pode passar da carga da matriz.</li>
+<li><strong>Sigla:</strong> gerada pelas iniciais do nome (ex.: BD, PII I) e editável. Aparece nos blocos da grade e na planilha.</li>
+</ul>
+<h3 id="35-projeto-integrador-e-extensao-regra-pi_extensao">3.5 Projeto Integrador e Extensão (regra <code>pi_extensao</code>)</h3>
+<ul>
+<li><strong>Até 2 aulas por semana para cada componente, em cada subturma.</strong> O limite é de cada um separadamente: PI e Extensão não se somam.</li>
+<li>Não precisam completar a carga, porque ela é cumprida fora da grade.</li>
+<li><strong>Projeto Integrador:</strong> professor opcional e livre. Cada aula pode ter um professor diferente (normalmente 1 aula por professor).</li>
+<li><strong>Extensão Universitária:</strong> pode ir em <strong>qualquer dia e horário</strong>, mesmo fora da disponibilidade do professor. Os choques, a sala, o limite de 40 e o bloqueio do dia de pós continuam valendo.</li>
+</ul>
+<h3 id="36-professores">3.6 Professores</h3>
+<ul>
+<li>Cadastro com nome, NIF (único), cor (paleta de 36 cores, com sugestão automática de uma cor livre), ativo e perfil.</li>
+<li><strong>Disponibilidade por período:</strong> dias e faixas de horário. Dia desmarcado significa indisponível.</li>
+<li><strong>Matéria → Professor</strong> (<code>atribuicoes</code>): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.</li>
+<li><strong>Excluir professor:</strong> botão no cadastro. Só exclui quem <strong>não tem aulas nem módulos de pós no período ativo ou em períodos futuros</strong>; quem tem aulas em períodos encerrados deve ser inativado, para preservar o histórico. A confirmação exige digitar o NIF. Junto são apagados a disponibilidade, as atividades, as indicações em Matéria → Professor e o login. Ninguém exclui o próprio cadastro nem o último ADM.</li>
+<li><strong>Proteção dos ADMs:</strong> ninguém pode se rebaixar ou se desativar, e o último ADM não pode ser removido nem rebaixado.</li>
+</ul>
+<h3 id="37-conflitos-e-validacoes">3.7 Conflitos e validações</h3>
+<p>Toda gravação passa por estas funções do banco. Qualquer erro <strong>impede a gravação</strong> e mostra o motivo. Nas gravações por aula, só bloqueia problema <strong>novo</strong>: um problema que já existia antes não trava uma ação sem relação com ele.</p>
+<table>
+<thead>
+<tr>
+<th>Regra</th>
+<th>Onde é conferida</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Professor em duas aulas ao mesmo tempo (graduação × graduação, pós × pós)</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td><strong>Pós bloqueia o dia inteiro</strong> para a graduação daquele professor</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td>Fora da disponibilidade do professor (exceto Extensão)</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td>Mais de <strong>40 aulas equivalentes</strong> numa semana</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td>Professor inativo com aula</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td>Atividade semanal para professor sem aulas no período</td>
+<td><code>validar_professor</code></td>
+</tr>
+<tr>
+<td>Matéria fora da matriz ou semestre da turma; modalidade que não ocupa horário; horário inválido</td>
+<td><code>validar_turma</code></td>
+</tr>
+<tr>
+<td>Matéria obrigatória sem professor; matéria "sem professor" com professor; mais de 2 professores</td>
+<td><code>validar_turma</code></td>
+</tr>
+<tr>
+<td>Subturma com duas aulas ao mesmo tempo; aula sem subturma</td>
+<td><code>validar_turma</code></td>
+</tr>
+<tr>
+<td>Carga acima da matriz; PI ou Extensão com mais de 2 por semana</td>
+<td><code>validar_turma</code></td>
+</tr>
+<tr>
+<td>Mesmo <strong>ambiente</strong> no mesmo dia e horário (graduação e pós)</td>
+<td><code>validar_ambientes</code></td>
+</tr>
+<tr>
+<td>Regras da pós (datas, módulos, formato)</td>
+<td><code>validar_turma_pos</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="38-carga-docente-igual-a-planilha-da-coordenacao">3.8 Carga docente (igual à planilha da coordenação)</h3>
+<pre><code>G   = aulas de graduação na semana (sem Extensão) + metade das EAD assíncronas
+X   = aulas de Extensão na semana
+P50 = arredondar para cima (minutos de pós na semana ÷ 50)
+Preparação = arredondar para cima (G × 20%) + arredondar para cima (P50 × 10%)
+Ensino     = G + X + P50 + Preparação
+Total      = Ensino + atividades semanais          → limite: 40
+</code></pre>
+<ul>
+<li><strong>Extensão não recebe preparação.</strong></li>
+<li><strong>EAD assíncrona:</strong> o professor definido na lista Matéria → Professor recebe (carga ÷ semanas letivas) ÷ 2 por semana, uma vez por turma.</li>
+<li><strong>Atividades complementares:</strong></li>
+<li>só as <strong>semanais</strong> entram na carga; as "por período" ficam só como registro;</li>
+<li>o <strong>tipo</strong> indica a linha da planilha: estágio, extensão, IC/orientação, coordenação de curso, pesquisa CNPq, distrito ou outras.</li>
+<li><strong>Para o professor:</strong> os cards mostram a semana mais cheia do período, sem o detalhe dos percentuais.</li>
+</ul>
+<h3 id="39-dias-nao-letivos-reposicoes-compensacoes-e-dias-letivos">3.9 Dias não letivos, reposições, compensações e dias letivos</h3>
+<ul>
+<li><strong>Dia não letivo:</strong> a pós pula a data automaticamente. A graduação não desconta.</li>
+<li><strong>Reposição no sábado:</strong> o dia não letivo pode indicar o sábado em que as aulas daquele dia da semana serão repostas. Vale para todas as turmas de graduação; a pós fica de fora.</li>
+<li>A data precisa ser um sábado.</li>
+<li>Precisa estar dentro do período.</li>
+<li>Não pode ser um dia não letivo.</li>
+<li>Não pode já estar em uso por outra reposição ou compensação.</li>
+<li><strong>Sábado de compensação (sem feriado):</strong> um sábado que vale como um dia da semana, usado quando o calendário tem menos semanas. As mesmas regras de data valem aqui.</li>
+<li><strong>Dias letivos:</strong> tabela de segunda a sexta com as datas do período, sem os dias não letivos e com os sábados de reposição e de compensação na coluna do dia que eles valem.</li>
+<li>O ADM vê uma conferência do tipo "Seg 19 de 20".</li>
+<li>O professor recebe os avisos dos sábados que o afetam.</li>
+</ul>
+<h3 id="310-montar-horario-tela-principal">3.10 Montar horário (tela principal)</h3>
+<ul>
+<li>Abre todas as turmas de graduação do curso no período, uma embaixo da outra.</li>
+<li><strong>Lançar uma aula:</strong></li>
+<li>arrastando um <strong>professor</strong> ou uma etiqueta da faixa <strong>"Faltam"</strong>;</li>
+<li><strong>lançamento direto:</strong> quando o professor tem uma só matéria pendente naquela subturma, a aula entra sem janela;</li>
+<li>nos outros casos abre a janela de lançamento.</li>
+<li><strong>Ajustar:</strong></li>
+<li>mover arrastando o bloco;</li>
+<li>2º professor: soltar um professor em cima da aula;</li>
+<li>lixeira para remover;</li>
+<li>clicar no bloco para editar;</li>
+<li>"Remover todas as aulas" da turma.</li>
+<li><strong>Durante o arraste,</strong> os horários impossíveis ficam hachurados, com o motivo.</li>
+<li><strong>Desfazer:</strong> botão e Ctrl+Z, até 30 ações da sessão.</li>
+<li><strong>Destacar professor:</strong> clique no nome no painel.</li>
+<li><strong>Tempo real e presença</strong> entre os coordenadores.</li>
+<li><strong>Toque:</strong> segurar e arrastar, no tablet e no celular.</li>
+</ul>
+<h3 id="311-preenchimento-automatico">3.11 Preenchimento automático</h3>
+<ol>
+<li>Gera as demandas pelo que falta em cada turma, usando a lista Matéria → Professor. As <strong>aulas conjuntas</strong> saem na quantidade marcada para a turma; o resto vai separado por subturma.</li>
+<li><strong>Ordem:</strong> conjuntas primeiro; depois as matérias com menos opções de horário; depois as maiores.</li>
+<li><strong>Respeita:</strong>
+   - a disponibilidade do professor (exceto Extensão);
+   - os dias de pós;
+   - os choques com qualquer turma do período;
+   - uma estimativa do limite de 40.</li>
+<li><strong>Tenta o bloco inteiro num dia</strong>; só divide quando não cabe. Prefere o dia com menos aulas na turma.</li>
+<li><strong>Onde cada tipo vai:</strong>
+   - presencial: segunda a sexta;
+   - EAD síncrona e Extensão: sábado primeiro;
+   - Projeto Integrador sem professor definido não é encaixado (o sistema pede para escolher arrastando).</li>
+<li><strong>O resultado é uma proposta tracejada</strong>, que pode ser movida, retirada ou receber um 2º professor antes de <strong>"Aceitar e gravar"</strong>.</li>
+<li><strong>Ao gravar,</strong> cada bloco passa pelas regras do banco; os recusados aparecem com o motivo.</li>
+<li><strong>Desfazer</strong> remove tudo o que o preenchimento gravou.</li>
+<li><strong>Não mexe no que já está lançado.</strong></li>
+</ol>
+<h3 id="312-copia-de-periodo">3.12 Cópia de período</h3>
+<p>"Copiar de outro período" traz:</p>
+<ul>
+<li>as turmas de graduação (mesmo curso, semestre e identificação) e as subturmas;</li>
+<li>a lista Matéria → Professor (ou o 1º professor da grade de origem) e as aulas conjuntas;</li>
+<li>opcionalmente, a disponibilidade dos professores e a grade.</li>
+</ul>
+<p>Nada que já existe no destino é apagado. A grade só vai para turmas vazias. Se a grade copiada quebrar alguma regra, nada é gravado. A pós não é copiada.</p>
+<h3 id="313-historico">3.13 Histórico</h3>
+<p>O banco registra sozinho quem alterou o quê e quando, com o antes e o depois:</p>
+<ul>
+<li>grade, pós, disponibilidade, Matéria → Professor e cópia de período;</li>
+<li>turmas, subturmas, períodos, dias não letivos, compensações, professores, atividades e componentes.</li>
+</ul>
+<p>Salvar sem mudança não gera registro.</p>
+<hr />
+<h2 id="4-banco-de-dados-tabelas">4. Banco de dados: tabelas</h2>
+<p><code>*</code> = obrigatório. Todas têm RLS com a política <code>adm_total</code> (acesso só do ADM), salvo indicação.</p>
+<h3 id="cadastro-academico">Cadastro acadêmico</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cursos</code></td>
+<td>id<em>, nome</em>, sigla, nivel<em> (<code>graduacao</code>, <code>pos</code>), ativo</em></td>
+<td></td>
+</tr>
+<tr>
+<td><code>matrizes</code></td>
+<td>id<em>, curso_id</em>, nome<em>, vigente</em></td>
+<td>PPC do curso</td>
+</tr>
+<tr>
+<td><code>componentes</code></td>
+<td>id<em>, matriz_id</em>, semestre<em> (0 = pós), ordem</em>, nome<em>, modalidade</em> (<code>presencial</code>, <code>ead_sincrona</code>, <code>ead_assincrona</code>, <code>pos</code>, <code>tcc</code>), carga, regra<em> (<code>normal</code>, <code>pi_extensao</code>), professor</em> (<code>obrigatorio</code>, <code>opcional</code>, <code>sem</code>), ativo<em>, sigla, aulas_conjuntas</em></td>
+<td><code>aulas_conjuntas</code> ficou <strong>sem uso</strong> (substituída por <code>turma_conjuntas</code>). A sigla é preenchida por gatilho quando vem vazia.</td>
+</tr>
+<tr>
+<td><code>periodos</code></td>
+<td>id<em>, ano</em>, semestre<em> (1 ou 2), inicio</em>, fim<em>, semanas_letivas</em> (1–30, padrão 20), visivel_professor*, calendario_em</td>
+<td></td>
+</tr>
+<tr>
+<td><code>turmas</code></td>
+<td>id<em>, periodo_id</em>, matriz_id<em>, semestre</em>, identificacao*</td>
+<td>Código da turma</td>
+</tr>
+<tr>
+<td><code>subturmas</code></td>
+<td>id<em>, turma_id</em>, nome*</td>
+<td>T1, T2…</td>
+</tr>
+<tr>
+<td><code>turma_conjuntas</code></td>
+<td>turma_id<em>, componente_id</em>, aulas* (1–10)</td>
+<td>Aulas conjuntas por semana, por turma e semestre</td>
+</tr>
+<tr>
+<td><code>ambientes</code></td>
+<td>id<em>, nome</em>, chave (gerada, única)</td>
+<td>Criados na hora; nomes parecidos podem ser unidos</td>
+</tr>
+</tbody>
+</table>
+<h3 id="horarios">Horários</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>horarios_graduacao</code></td>
+<td>tipo_dia<em> (<code>semana</code>, <code>sabado</code>), numero</em>, inicio<em>, fim</em></td>
+</tr>
+<tr>
+<td><code>horarios_pos</code></td>
+<td>formato<em> (<code>10_semanas</code>, <code>8_semanas</code>, <code>manha</code>, <code>tarde</code>), inicio</em>, fim<em>, minutos_aula</em></td>
+</tr>
+</tbody>
+</table>
+<h3 id="professores">Professores</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>professores</code></td>
+<td>id<em>, nome</em>, nif<em> (3–12 dígitos, único), cor</em> (#RRGGBB), ativo<em>, perfil</em> (<code>professor</code>, <code>adm</code>), auth_user_id</td>
+<td>Gatilho <code>proteger_adms</code></td>
+</tr>
+<tr>
+<td><code>disponibilidades</code></td>
+<td>professor_id<em>, periodo_id</em>, dia_semana<em> (1–6), inicio</em>, fim*</td>
+<td>Dia sem registro = indisponível</td>
+</tr>
+<tr>
+<td><code>atividades</code></td>
+<td>id<em>, professor_id</em>, periodo_id<em>, descricao</em>, quantidade<em> (&gt; 0), frequencia</em> (<code>semanal</code>, <code>periodo</code>), observacao, tipo* (<code>estagio</code>, <code>extensao</code>, <code>ic_orientacao</code>, <code>coordenacao_curso</code>, <code>pesquisa_cnpq</code>, <code>distrito</code>, <code>outras</code>)</td>
+<td></td>
+</tr>
+<tr>
+<td><code>atribuicoes</code></td>
+<td>subturma_id<em>, componente_id</em>, professor_id<em>, atualizado_em</em></td>
+<td>Matéria → Professor (chave subturma + componente)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="graduacao">Graduação</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>aulas</code></td>
+<td>id<em>, turma_id</em>, componente_id<em>, dia_semana</em> (1–6), inicio<em> (nº do horário), quantidade</em> (1–8), ambiente_id, atualizado_em*</td>
+<td>Uma aula ocupa <code>quantidade</code> horários seguidos</td>
+</tr>
+<tr>
+<td><code>aula_professores</code></td>
+<td>aula_id<em>, professor_id</em></td>
+<td>Até 2</td>
+</tr>
+<tr>
+<td><code>aula_subturmas</code></td>
+<td>aula_id<em>, subturma_id</em></td>
+<td>Mais de uma = aula conjunta</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pos-graduacao">Pós-graduação</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ofertas_pos</code></td>
+<td>id<em>, turma_id</em>, componente_id<em>, professor_id</em>, modo<em> (<code>semana</code>, <code>sabado</code>), formato</em> (semana: <code>10_semanas</code> ou <code>8_semanas</code>; sábado: <code>manha</code>, <code>tarde</code> ou <code>integral</code>)</td>
+<td>Única por turma + componente + modo</td>
+</tr>
+<tr>
+<td><code>encontros_pos</code></td>
+<td>id<em>, oferta_id</em>, data<em>, inicio</em>, fim<em>, minutos</em>, ambiente_id</td>
+<td>Datas já sem os dias não letivos</td>
+</tr>
+</tbody>
+</table>
+<h3 id="calendario">Calendário</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dias_nao_letivos</code></td>
+<td>id<em>, periodo_id</em>, data<em>, motivo</em>, reposicao_em</td>
+<td>Gatilho <code>validar_reposicao</code></td>
+</tr>
+<tr>
+<td><code>compensacoes</code></td>
+<td>id<em>, periodo_id</em>, data<em> (sábado), dia_semana</em> (1–5), motivo</td>
+<td>Gatilho <code>validar_compensacao</code>; única por período + data</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sistema">Sistema</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Colunas</th>
+<th>Observações</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>historico</code></td>
+<td>id<em>, em</em>, usuario, periodo_id, tipo<em>, acao</em>, alvo, antes, depois</td>
+<td>Só leitura para o ADM; gravada pelas funções e pelos gatilhos</td>
+</tr>
+<tr>
+<td><code>modelo_planilha</code></td>
+<td>id<em> (= 1), nome_arquivo</em>, conteudo_base64<em>, tamanho</em>, atualizado_em*, atualizado_por</td>
+<td>Modelo confidencial da planilha; <strong>nunca</strong> vai para o GitHub</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-banco-de-dados-views-gatilhos-e-armazenamento">5. Banco de dados: views, gatilhos e armazenamento</h2>
+<h3 id="views-todas-security_invoker">Views (todas <code>security_invoker</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Para quê</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>v_aulas_horario</code></td>
+<td>Aula com período, nome da matéria e horário real de início e fim (hi, hf)</td>
+</tr>
+<tr>
+<td><code>v_encontros</code></td>
+<td>Encontro de pós com turma, período, componente, professor e dia da semana</td>
+</tr>
+<tr>
+<td><code>v_ambientes_uso</code></td>
+<td>Quantas aulas e encontros usam cada ambiente</td>
+</tr>
+<tr>
+<td><code>v_dias_nao_letivos</code></td>
+<td>Dia não letivo com a contagem de encontros afetados e a reposição</td>
+</tr>
+<tr>
+<td><code>v_historico</code></td>
+<td>Histórico com o nome de quem alterou</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gatilhos">Gatilhos</h3>
+<table>
+<thead>
+<tr>
+<th>Tabela</th>
+<th>Gatilho</th>
+<th>Função</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>componentes</code></td>
+<td><code>componentes_sigla</code></td>
+<td><code>componentes_sigla_padrao</code>: gera e normaliza a sigla</td>
+</tr>
+<tr>
+<td><code>professores</code></td>
+<td><code>trg_proteger_adms</code></td>
+<td><code>proteger_adms</code></td>
+</tr>
+<tr>
+<td><code>dias_nao_letivos</code></td>
+<td><code>dias_nao_letivos_reposicao</code></td>
+<td><code>validar_reposicao</code></td>
+</tr>
+<tr>
+<td><code>compensacoes</code></td>
+<td><code>compensacoes_validar</code></td>
+<td><code>validar_compensacao</code></td>
+</tr>
+<tr>
+<td>turmas, subturmas, periodos, dias_nao_letivos, compensacoes, professores, atividades, componentes</td>
+<td><code>historico</code></td>
+<td><code>historico_linha</code> (pode ser silenciado pela cópia de período)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="armazenamento-supabase-storage">Armazenamento (Supabase Storage)</h3>
+<ul>
+<li><strong>Balde <code>calendarios</code>:</strong> privado, só PDF, até 10 MB. O arquivo tem o nome <code>&lt;periodo_id&gt;.pdf</code>.</li>
+<li><strong>Leitura:</strong> pela função <code>calendario_liberado(nome)</code>: o ADM sempre, e o professor só se o período estiver visível.</li>
+<li><strong>Envio, troca e remoção:</strong> só o ADM.</li>
+</ul>
+<h3 id="tempo-real">Tempo real</h3>
+<p>A publicação <code>supabase_realtime</code> inclui <code>aulas</code>, <code>aula_professores</code>, <code>aula_subturmas</code> e <code>atribuicoes</code>. O RLS continua valendo, então só o ADM recebe os eventos.</p>
+<hr />
+<h2 id="6-banco-de-dados-funcoes">6. Banco de dados: funções</h2>
+<p><strong>invoker</strong> roda com as permissões de quem chama. <strong>definer</strong> roda com permissão elevada, mas sempre presa ao usuário logado.</p>
+<h3 id="seguranca-e-perfil">Segurança e perfil</h3>
+<table>
+<thead>
+<tr>
+<th>Função</th>
+<th>Tipo</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>is_admin()</code></td>
+<td>definer</td>
+<td>O usuário logado é ADM ativo?</td>
+</tr>
+<tr>
+<td><code>professor_atual()</code></td>
+<td>definer</td>
+<td>id do professor do usuário logado</td>
+</tr>
+<tr>
+<td><code>troca_senha_pendente()</code></td>
+<td>invoker</td>
+<td>Lê <code>app_metadata.troca_senha_pendente</code> do token</td>
+</tr>
+<tr>
+<td><code>periodo_liberado(periodo)</code></td>
+<td>definer</td>
+<td>ADM ou professor com o período visível</td>
+</tr>
+<tr>
+<td><code>meu_perfil()</code></td>
+<td>definer</td>
+<td>Nome, NIF, perfil, ativo e troca pendente</td>
+</tr>
+<tr>
+<td><code>meus_periodos()</code></td>
+<td>definer</td>
+<td>Períodos visíveis (todos para o ADM), com <code>tem_calendario</code></td>
+</tr>
+<tr>
+<td><code>minhas_aulas(periodo)</code></td>
+<td>definer</td>
+<td>Graduação, pós, carga e atividades do professor logado</td>
+</tr>
+<tr>
+<td><code>agenda_professor(prof, periodo)</code></td>
+<td>definer</td>
+<td>O mesmo, para o ADM consultar qualquer professor</td>
+</tr>
+<tr>
+<td><code>_aulas_professor(prof, periodo)</code></td>
+<td>definer</td>
+<td>Base interna das duas anteriores</td>
+</tr>
+<tr>
+<td><code>dias_letivos(periodo)</code></td>
+<td>definer</td>
+<td>Dias letivos com o tipo: normal, reposição ou compensação</td>
+</tr>
+<tr>
+<td><code>calendario_liberado(nome)</code></td>
+<td>definer</td>
+<td>Regra de leitura do PDF</td>
+</tr>
+<tr>
+<td><code>listar_acessos()</code></td>
+<td>definer</td>
+<td>ADM: situação de login de cada professor</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gravacao-todas-exigem-adm-e-travam-o-periodo-durante-a-gravacao">Gravação (todas exigem ADM e travam o período durante a gravação)</h3>
+<table>
+<thead>
+<tr>
+<th>Função</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gravar_aula(aula, turma, componente, dia, inicio, quantidade, subturmas[], professores[], ambiente)</code></td>
+<td>Lança (aula nula) ou altera <strong>uma</strong> aula. Bloqueia só problemas novos e registra no histórico.</td>
+</tr>
+<tr>
+<td><code>remover_aula(aula)</code></td>
+<td>Remove uma aula e registra no histórico</td>
+</tr>
+<tr>
+<td><code>limpar_turma(turma)</code></td>
+<td>Remove todas as aulas da turma, mantém a lista Matéria → Professor e registra no histórico</td>
+</tr>
+<tr>
+<td><code>salvar_grade_turma(turma, aulas jsonb)</code></td>
+<td>Substitui a grade inteira da turma (era usada pela tela antiga, removida em 22/11/2026; mantida no banco)</td>
+</tr>
+<tr>
+<td><code>salvar_oferta_pos(turma, componente, modo, professor, formato, encontros jsonb)</code></td>
+<td>Grava um módulo da pós e os encontros dele; sem encontros, remove</td>
+</tr>
+<tr>
+<td><code>salvar_disponibilidade(prof, periodo, dias jsonb)</code></td>
+<td>Substitui a disponibilidade do professor no período</td>
+</tr>
+<tr>
+<td><code>salvar_atividade(id, prof, periodo, descricao, quantidade, frequencia, observacao, tipo)</code></td>
+<td>Cria ou altera uma atividade complementar</td>
+</tr>
+<tr>
+<td><code>salvar_atribuicoes(turma, itens jsonb)</code></td>
+<td>Substitui a lista Matéria → Professor da turma</td>
+</tr>
+<tr>
+<td><code>copiar_periodo(origem, destino, disponibilidades, aulas)</code></td>
+<td>Cópia de período (ver 3.12)</td>
+</tr>
+<tr>
+<td><code>exclusao_professor(prof)</code></td>
+<td>Lista o que impede a exclusão e o que será apagado junto</td>
+</tr>
+<tr>
+<td><code>excluir_professor(prof)</code></td>
+<td>Exclui o professor (só sem impedimentos) e devolve o login para a Edge Function apagar</td>
+</tr>
+<tr>
+<td><code>juntar_ambientes(origem, destino)</code></td>
+<td>Une dois ambientes (nomes parecidos)</td>
+</tr>
+<tr>
+<td><code>ambiente_id(nome)</code></td>
+<td>Acha ou cria o ambiente pelo nome</td>
+</tr>
+</tbody>
+</table>
+<h3 id="validacao">Validação</h3>
+<table>
+<thead>
+<tr>
+<th>Função</th>
+<th>O que confere</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>validar_professor(prof, periodo)</code></td>
+<td>Choques, pós no dia, disponibilidade (exceto Extensão), limite de 40, professor inativo, atividade sem aula</td>
+</tr>
+<tr>
+<td><code>validar_turma(turma)</code></td>
+<td>Matriz e semestre, modalidade, horário, professor, subturmas, choque na subturma, carga, PI e Extensão até 2</td>
+</tr>
+<tr>
+<td><code>validar_turma_pos(turma)</code></td>
+<td>Regras da turma de pós</td>
+</tr>
+<tr>
+<td><code>validar_ambientes(periodo, turma?)</code></td>
+<td>Ambiente ocupado (graduação e pós)</td>
+</tr>
+<tr>
+<td><code>_problemas_escopo(turma, periodo, profs[])</code></td>
+<td>Junta as validações acima para comparar antes e depois</td>
+</tr>
+<tr>
+<td><code>_falhar_se_erros(erros[])</code></td>
+<td>Cancela a gravação com o erro <code>P0001</code> e uma linha por problema</td>
+</tr>
+<tr>
+<td><code>auditoria(periodo)</code></td>
+<td>Todos os problemas do período (tela Auditoria)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="carga">Carga</h3>
+<table>
+<thead>
+<tr>
+<th>Função</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>calc_carga(g, pos_min, ativ, ext)</code></td>
+<td>Fórmula da seção 3.8</td>
+</tr>
+<tr>
+<td><code>carga_semana(prof, periodo, segunda)</code></td>
+<td>Carga de uma semana, incluindo meia EAD assíncrona</td>
+</tr>
+<tr>
+<td><code>carga_periodo(prof, periodo)</code></td>
+<td>Carga de todas as semanas do período</td>
+</tr>
+<tr>
+<td><code>carga_todos(periodo)</code></td>
+<td>Carga de todos os professores (Dashboard, Carga docente, Montar horário)</td>
+</tr>
+<tr>
+<td><code>semanas_periodo(periodo)</code></td>
+<td>Semanas letivas do período</td>
+</tr>
+</tbody>
+</table>
+<h3 id="apoio-e-historico">Apoio e histórico</h3>
+<table>
+<thead>
+<tr>
+<th>Função</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>turma_rotulo(turma)</code></td>
+<td>Rótulo, por exemplo "ADS · 1º sem. · CTSADS127N1"</td>
+</tr>
+<tr>
+<td><code>dia_nome(dia)</code>, <code>aula_horario(dia, inicio, qtd)</code>, <code>fmt_num(n)</code></td>
+<td>Formatação e cálculo de horário</td>
+</tr>
+<tr>
+<td><code>e_extensao(nome)</code>, <code>gerar_sigla(nome)</code></td>
+<td>Identifica Extensão; gera a sigla</td>
+</tr>
+<tr>
+<td><code>_registrar(...)</code>, <code>historico_linha()</code></td>
+<td>Gravam o histórico (só quando algo muda)</td>
+</tr>
+<tr>
+<td><code>_snap_grade</code>, <code>_snap_oferta</code>, <code>_snap_disp</code>, <code>_snap_atrib</code></td>
+<td>Retratos legíveis do "antes" e do "depois"</td>
+</tr>
+<tr>
+<td><code>validar_reposicao()</code>, <code>validar_compensacao()</code>, <code>proteger_adms()</code>, <code>componentes_sigla_padrao()</code></td>
+<td>Funções dos gatilhos</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-telas">7. Telas</h2>
+<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Minhas aulas · Sair.</p>
+<p><strong>Menu do professor:</strong> Minhas aulas · Sair.</p>
+<p>Em telas largas e no celular, o menu vira <strong>sanduíche (☰)</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Tela (arquivo)</th>
+<th>Quem</th>
+<th>O que faz</th>
+<th>Principais chamadas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Login (<code>index.html</code>)</td>
+<td>todos</td>
+<td>Login por NIF e senha; leva ao perfil certo</td>
+<td>Auth, <code>meu_perfil</code></td>
+</tr>
+<tr>
+<td>Primeiro acesso (<code>primeiro-acesso.html</code>)</td>
+<td>todos</td>
+<td>Troca obrigatória da senha provisória</td>
+<td>Edge <code>gerenciar-usuarios</code> (<code>trocar_senha</code>)</td>
+</tr>
+<tr>
+<td>Dashboard (<code>inicio.html</code>)</td>
+<td>ADM</td>
+<td>Indicadores do período, andamento por turma e aulas de todos os professores</td>
+<td><code>carga_todos</code>, <code>auditoria</code></td>
+</tr>
+<tr>
+<td><strong>Montar horário</strong> (<code>montar.html</code>)</td>
+<td>ADM</td>
+<td>Tela principal da grade (3.10 e 3.11)</td>
+<td><code>gravar_aula</code>, <code>remover_aula</code>, <code>limpar_turma</code>, <code>carga_todos</code>, Realtime</td>
+</tr>
+<tr>
+<td>Planejamento da pós (<code>pos.html</code>)</td>
+<td>ADM</td>
+<td>Módulos e encontros por turma, nos modos Semana e Sábado, pulando dias não letivos</td>
+<td><code>salvar_oferta_pos</code></td>
+</tr>
+<tr>
+<td>Carga docente (<code>carga.html</code>)</td>
+<td>ADM</td>
+<td>Carga semana a semana de todos, com o detalhe do cálculo</td>
+<td><code>carga_todos</code></td>
+</tr>
+<tr>
+<td>Cadastro de professores (<code>professores.html</code>)</td>
+<td>ADM</td>
+<td>Nome, NIF, cor (36 cores), ativo, perfil; criar acesso; excluir professor</td>
+<td>tabela <code>professores</code>, <code>exclusao_professor</code>, Edge <code>criar_acesso</code> e <code>excluir_professor</code></td>
+</tr>
+<tr>
+<td>Disponibilidade (<code>disponibilidade.html</code>)</td>
+<td>ADM</td>
+<td>Dias e horários por período</td>
+<td><code>salvar_disponibilidade</code></td>
+</tr>
+<tr>
+<td>Atividades complementares (<code>atividades.html</code>)</td>
+<td>ADM</td>
+<td>Atividades com tipo e frequência</td>
+<td><code>salvar_atividade</code></td>
+</tr>
+<tr>
+<td>Agenda docente (<code>agenda.html</code>)</td>
+<td>ADM</td>
+<td>Semana de qualquer professor</td>
+<td><code>agenda_professor</code></td>
+</tr>
+<tr>
+<td>Gestão de turmas (<code>turmas.html</code>)</td>
+<td>ADM</td>
+<td>Turmas e subturmas; <strong>Professores</strong> (Matéria → Professor e aulas conjuntas); <strong>Copiar de outro período</strong></td>
+<td><code>salvar_atribuicoes</code>, <code>turma_conjuntas</code>, <code>copiar_periodo</code></td>
+</tr>
+<tr>
+<td>Matrizes curriculares (<code>matrizes.html</code>)</td>
+<td>ADM</td>
+<td>Cursos, matrizes e componentes (sigla, modalidade, carga, regra, professor)</td>
+<td>tabelas <code>cursos</code>, <code>matrizes</code> e <code>componentes</code></td>
+</tr>
+<tr>
+<td>Configurações acadêmicas (<code>configuracoes.html</code>)</td>
+<td>ADM</td>
+<td>Períodos (semanas, visível, calendário em PDF), dias não letivos, reposição, sábados de compensação, conferência de dias letivos, horários, ambientes</td>
+<td>tabelas, Storage, <code>dias_letivos</code>, <code>juntar_ambientes</code></td>
+</tr>
+<tr>
+<td>Auditoria (<code>auditoria.html</code>)</td>
+<td>ADM</td>
+<td>Lista os problemas do período</td>
+<td><code>auditoria</code></td>
+</tr>
+<tr>
+<td>Histórico de alterações (<code>historico.html</code>)</td>
+<td>ADM</td>
+<td>Quem mudou o quê e quando, com filtros</td>
+<td><code>v_historico</code></td>
+</tr>
+<tr>
+<td>Relatórios de aulas (<code>relatorios.html</code>)</td>
+<td>ADM</td>
+<td>Por professor ou por turma; impressão e PDF em A4 paisagem</td>
+<td>tabelas e views, <code>carga_todos</code></td>
+</tr>
+<tr>
+<td>Criar planilha (<code>planilha.html</code>)</td>
+<td>ADM</td>
+<td>Envia o modelo e gera o Excel da coordenação</td>
+<td><code>modelo_planilha</code>, ExcelJS</td>
+</tr>
+<tr>
+<td>Usuários e acessos (<code>usuarios.html</code>)</td>
+<td>ADM</td>
+<td>Criar acesso, redefinir senha, bloquear e reativar, promover a ADM</td>
+<td><code>listar_acessos</code>, Edge <code>gerenciar-usuarios</code></td>
+</tr>
+<tr>
+<td><strong>Minhas aulas</strong> (<code>minhas-aulas.html</code>)</td>
+<td>professor e ADM</td>
+<td>Só o período: cards de carga, grade fixa, pós, sábados letivos, atividades, botões <strong>Calendário escolar</strong> e <strong>Dias letivos</strong></td>
+<td><code>meus_periodos</code>, <code>minhas_aulas</code>, <code>dias_letivos</code>, Storage</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-arquivos-de-codigo-do-site">8. Arquivos de código do site</h2>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Papel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>js/config.js</code></td>
+<td>URL do Supabase, chave pública, domínio do login e título</td>
+</tr>
+<tr>
+<td><code>js/supabase.js</code></td>
+<td>Cliente, <code>rpc()</code>, <code>q()</code> e mensagens de erro em português (<code>linhas</code> vem do detalhe P0001)</td>
+</tr>
+<tr>
+<td><code>js/auth.js</code></td>
+<td>Entrar, sair, exigir sessão, trocar senha, chamadas de contas</td>
+</tr>
+<tr>
+<td><code>js/layout.js</code></td>
+<td>Topo, menu, menu sanduíche e telas prontas</td>
+</tr>
+<tr>
+<td><code>js/pagina.js</code></td>
+<td>Iniciar página, períodos, avisos, janelas e confirmação</td>
+</tr>
+<tr>
+<td><code>js/util.js</code></td>
+<td>Datas, dias da semana, formatação, alertas</td>
+</tr>
+<tr>
+<td><code>js/cores.js</code></td>
+<td>36 cores dos professores, tons do bloco, próxima cor livre</td>
+</tr>
+<tr>
+<td><code>js/semana.js</code></td>
+<td>Grade semanal (Agenda)</td>
+</tr>
+<tr>
+<td><code>js/analise.js</code></td>
+<td>Situação das turmas (Dashboard e Auditoria)</td>
+</tr>
+<tr>
+<td><code>js/dias-letivos.js</code></td>
+<td>Tabela de dias letivos e impressão</td>
+</tr>
+<tr>
+<td><code>js/calendario.js</code></td>
+<td>Enviar, abrir e remover o PDF do calendário</td>
+</tr>
+<tr>
+<td><code>js/planilha-gerar.js</code></td>
+<td>Gerador da planilha (puro; também roda no Node para testes)</td>
+</tr>
+<tr>
+<td>Demais <code>js/&lt;tela&gt;.js</code></td>
+<td>Uma por tela (ver seção 7)</td>
+</tr>
+<tr>
+<td><code>css/base.css</code></td>
+<td>Identidade visual: paleta grafite + vermelho <code>#E0283F</code>, componentes e telas</td>
+</tr>
+<tr>
+<td><code>versao.sh</code></td>
+<td>Troca o <code>?v=</code> dos arquivos para o navegador baixar a versão nova</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-funcoes-de-servidor-edge-functions">9. Funções de servidor (Edge Functions)</h2>
+<p><strong><code>gerenciar-usuarios</code></strong>: exige login. Usa a <code>service_role</code> só no servidor.</p>
+<table>
+<thead>
+<tr>
+<th>Ação</th>
+<th>Quem</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trocar_senha</code></td>
+<td>o próprio usuário</td>
+<td>Troca a senha seguindo as regras (recusa se a provisória já venceu)</td>
+</tr>
+<tr>
+<td><code>criar_acesso</code></td>
+<td>ADM</td>
+<td>Cria o login <code>NIF@horario.local</code> com a senha provisória NIF + <code>cfp109</code>, válida por 7 dias</td>
+</tr>
+<tr>
+<td><code>resetar_senha</code></td>
+<td>ADM</td>
+<td>Volta para a senha provisória e encerra as sessões</td>
+</tr>
+<tr>
+<td><code>bloquear_acesso</code></td>
+<td>ADM</td>
+<td>Bloqueia o login</td>
+</tr>
+<tr>
+<td><code>reativar_acesso</code></td>
+<td>ADM</td>
+<td>Desbloqueia o login</td>
+</tr>
+<tr>
+<td><code>excluir_professor</code></td>
+<td>ADM</td>
+<td>Chama <code>excluir_professor</code> no banco e apaga o login</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-planilha-da-coordenacao-criar-planilha">10. Planilha da coordenação (Criar planilha)</h2>
+<ul>
+<li>O <strong>modelo confidencial</strong> fica no banco (<code>modelo_planilha</code>, só ADM). Ele precisa ter as abas base <code>Nome docente</code>, <code>_base_grad</code> e <code>_base_pos</code>.</li>
+<li><strong>Uma aba por professor</strong> com aula ou atividade no período:</li>
+<li>graduação por matéria e subturma: "(CHT x - T1 e T2)" quando conjunta, "(CHP x - T1)" quando separada;</li>
+<li>EAD síncrona e assíncrona (a assíncrona pela metade);</li>
+<li>pós, com as datas e o número de semanas;</li>
+<li>Extensão e atividades por tipo;</li>
+<li>totais com as mesmas fórmulas e arredondamentos da planilha.</li>
+<li><strong>Colunas dos meses:</strong> as do período. <strong>Agosto e janeiro</strong> saem divididos em duas metades (dias 1–15 e 16–fim).</li>
+<li><strong>Horário Graduação</strong> por curso, com as turmas empilhadas, T1 e T2 lado a lado e uma cor por matéria. <strong>Horário Pós</strong> por turma.</li>
+<li><strong>Ficam em branco:</strong></li>
+<li>as abas de RH;</li>
+<li>titulação, admissão, cargo e Lattes;</li>
+<li>a coluna "Módulo" da pós.</li>
+<li><strong>Avisos</strong> quando o modelo não comporta tudo: 14 linhas de graduação, 9 de pós, 3 de "outras", 4 linhas de sábado e 2 subturmas.</li>
+</ul>
+<hr />
+<h2 id="11-operacao-e-manutencao">11. Operação e manutenção</h2>
+<ul>
+<li><strong>Publicar uma mudança no site:</strong> rodar <code>./versao.sh</code> (troca o <code>?v=</code> de todos os arquivos), fazer commit e enviar para o ramo <code>main</code>. O GitHub Pages publica em 1 a 3 minutos.</li>
+<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>29_excluir_professor</code>.</li>
+<li><strong>Período novo:</strong>
+  1. criar em Configurações, já com as semanas letivas;
+  2. cadastrar os dias não letivos, as reposições e as compensações;
+  3. em Turmas, usar <strong>Copiar de outro período</strong>;
+  4. ajustar os códigos das turmas, os professores das matérias e as aulas conjuntas;
+  5. conferir a disponibilidade;
+  6. Montar horário → <strong>Preencher automaticamente</strong> → ajustar → aceitar;
+  7. marcar <strong>Visível para professores</strong> e enviar o calendário em PDF.</li>
+<li><strong>Antes de liberar para os professores:</strong> Auditoria sem erros.</li>
+<li><strong>Backup do sistema anterior às grandes mudanças:</strong> ramo <code>versao-1</code>.</li>
+</ul>
+</main></body></html>
