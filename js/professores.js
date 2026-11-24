@@ -1,8 +1,8 @@
-import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611241950';
-import { sb, q, rpc } from './supabase.js?v=202611241950';
-import { contas } from './auth.js?v=202611241950';
-import { esc, mostrarAlerta } from './util.js?v=202611241950';
-import { CORES_PROFESSORES, proximaCor } from './cores.js?v=202611241950';
+import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611242012';
+import { sb, q, rpc } from './supabase.js?v=202611242012';
+import { contas } from './auth.js?v=202611242012';
+import { esc, mostrarAlerta } from './util.js?v=202611242012';
+import { CORES_PROFESSORES, CORES_PLANILHA, proximaCor } from './cores.js?v=202611242012';
 
 const { perfil, main } = await iniciarPagina('professores');
 
@@ -61,8 +61,8 @@ function abrirForm(p) {
   editando = p || null;
   const a = p ? acessos.find((x) => x.professor_id === p.id) : null;
   const cor = (p?.cor || proximaCor(profs.map((x) => x.cor))).toUpperCase();
-  // cor antiga (fora da paleta nova) continua disponível para o professor que já a usa
-  const CORES = CORES_PROFESSORES.includes(cor) ? CORES_PROFESSORES : [cor, ...CORES_PROFESSORES];
+  const TODAS = [...CORES_PLANILHA, ...CORES_PROFESSORES];
+  const personalizada = !TODAS.includes(cor);
   const emUso = new Map(profs.filter((x) => x.id !== p?.id).map((x) => [String(x.cor).toUpperCase(), x.nome]));
   const form = main.querySelector('#form');
   form.innerHTML = `
@@ -71,8 +71,16 @@ function abrirForm(p) {
     <div class="campo"><label for="nif">NIF</label><input id="nif" inputmode="numeric" value="${esc(p?.nif || '')}" ${a?.tem_acesso ? 'disabled' : ''} required>
       ${a?.tem_acesso ? '<span class="muted" style="font-size:12px">O NIF é o login; não pode ser alterado depois que o acesso foi criado.</span>' : ''}</div>
     <div class="campo"><span class="rotulo">Cor nas grades</span>
-      <div class="cores" id="cores">${CORES.map((c) => `<button type="button" style="background:${c}" data-cor="${c}" aria-pressed="${c === cor}" aria-label="Cor ${c}${emUso.has(c) ? ', em uso por ' + esc(emUso.get(c)) : ''}" title="${emUso.has(c) ? 'Em uso: ' + esc(emUso.get(c)) : 'Livre'}"${emUso.has(c) ? ' data-usada' : ''}></button>`).join('')}</div>
-      <span class="muted" style="font-size:12px">A cor com contorno pontilhado já está em uso por outro professor.</span></div>
+      <span class="muted" style="font-size:12px">Cores da planilha</span>
+      <div class="cores" id="cores-plan">${CORES_PLANILHA.map((c) => `<button type="button" style="background:${c}" data-cor="${c}" aria-pressed="${c === cor}" aria-label="Cor ${c}${emUso.has(c) ? ', em uso por ' + esc(emUso.get(c)) : ''}" title="${c}${emUso.has(c) ? ' · em uso: ' + esc(emUso.get(c)) : ' · livre'}"${emUso.has(c) ? ' data-usada' : ''}></button>`).join('')}</div>
+      <span class="muted" style="font-size:12px;margin-top:4px">Outras cores</span>
+      <div class="cores" id="cores">${CORES_PROFESSORES.map((c) => `<button type="button" style="background:${c}" data-cor="${c}" aria-pressed="${c === cor}" aria-label="Cor ${c}${emUso.has(c) ? ', em uso por ' + esc(emUso.get(c)) : ''}" title="${c}${emUso.has(c) ? ' · em uso: ' + esc(emUso.get(c)) : ' · livre'}"${emUso.has(c) ? ' data-usada' : ''}></button>`).join('')}</div>
+      <div class="cor-livre">
+        <input type="color" id="cor-pick" value="${cor}" aria-label="Escolher outra cor">
+        <input id="cor-hex" value="${cor}" maxlength="7" placeholder="#RRGGBB" aria-label="Código da cor" spellcheck="false">
+        <span class="muted" style="font-size:12px">Outra cor: escolha ou digite o código (ex.: #00B0F0)</span>
+      </div>
+      <span class="muted" style="font-size:12px">A cor com contorno pontilhado já está em uso por outro professor.${personalizada ? ' Este professor usa uma cor própria.' : ''}</span></div>
     <label class="check"><input type="checkbox" id="ativo" ${!p || p.ativo ? 'checked' : ''}> Professor ativo</label>
     <div class="requisitos" style="gap:10px">
       ${a?.tem_acesso
@@ -88,7 +96,17 @@ function abrirForm(p) {
     ${p ? `<div style="border-top:1px solid var(--linha);padding-top:14px;display:flex;flex-direction:column;gap:6px">
       <button class="btn btn-p btn-perigo" type="button" id="excluir" style="align-self:flex-start">Excluir professor</button>
       <span class="muted" style="font-size:12px;line-height:1.45">Só é possível excluir quem não tem nenhuma aula no período ativo nem em períodos futuros. Para quem já deu aula, prefira desmarcar "Professor ativo".</span></div>` : ''}`;
-  form.querySelectorAll('[data-cor]').forEach((b) => b.addEventListener('click', () => form.querySelectorAll('[data-cor]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)))));
+  const pick = form.querySelector('#cor-pick'), hexIn = form.querySelector('#cor-hex');
+  const marcar = (c) => {
+    form.querySelectorAll('[data-cor]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.cor === c)));
+    pick.value = c; hexIn.value = c; hexIn.classList.remove('invalido');
+  };
+  form.querySelectorAll('[data-cor]').forEach((b) => b.addEventListener('click', () => marcar(b.dataset.cor)));
+  pick.addEventListener('input', () => marcar(pick.value.toUpperCase()));
+  hexIn.addEventListener('input', () => {
+    let v = hexIn.value.trim().toUpperCase(); if (v && !v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9A-F]{6}$/.test(v)) marcar(v); else hexIn.classList.add('invalido');
+  });
   form.querySelector('#cancelar').addEventListener('click', () => abrirForm(null));
   form.querySelector('#excluir')?.addEventListener('click', () => excluir(p, form.querySelector('#msg')));
   form.querySelector('#nome').focus();
@@ -105,7 +123,8 @@ main.querySelector('#form').addEventListener('submit', async (ev) => {
     const a = p ? acessos.find((x) => x.professor_id === p.id) : null;
     const nome = form.querySelector('#nome').value.trim().replace(/\s+/g, ' ');
     const nif = form.querySelector('#nif').value.replace(/\D/g, '');
-    const cor = form.querySelector('[data-cor][aria-pressed="true"]').dataset.cor;
+    const cor = form.querySelector('#cor-hex').value.trim().toUpperCase().replace(/^([0-9A-F]{6})$/, '#$1');
+    if (!/^#[0-9A-F]{6}$/.test(cor)) throw new Error('Cor inválida. Use o formato #RRGGBB, por exemplo #00B0F0.');
     const ativo = form.querySelector('#ativo').checked;
     const criarAcesso = form.querySelector('#criar-acesso')?.checked;
     const perfilNovo = form.querySelector('input[name=perfil]:checked')?.value || p?.perfil || 'professor';

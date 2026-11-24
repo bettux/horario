@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611241950';
-import { sb, q } from './supabase.js?v=202611241950';
-import { esc } from './util.js?v=202611241950';
-import { gerarPlanilha } from './planilha-gerar.js?v=202611241950';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611242012';
+import { sb, q } from './supabase.js?v=202611242012';
+import { esc } from './util.js?v=202611242012';
+import { gerarPlanilha } from './planilha-gerar.js?v=202611242012';
 
 // Exportação para Excel no modelo da coordenação (uso confidencial, só administrador).
 // O modelo fica guardado no banco (tabela com acesso restrito ao ADM), nunca no repositório.

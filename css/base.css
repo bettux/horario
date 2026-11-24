@@ -411,3 +411,10 @@ body.mh-arrastando-aula .mh-lixeira { display: block; }
 /* sigla editável na tabela de componentes */
 .sigla-in { width: 92px; height: 30px; border: 1px solid var(--borda); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 13px; font-weight: 600; background: #fff; }
 .sigla-in:focus { outline: 2px solid var(--grafite); outline-offset: 1px; }
+
+/* cor livre do professor */
+.cor-livre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.cor-livre input[type="color"] { width: 38px; height: 32px; padding: 2px; border: 1px solid var(--borda); border-radius: 7px; background: #fff; cursor: pointer; }
+.cor-livre #cor-hex { width: 96px; height: 32px; border: 1px solid var(--borda); border-radius: 7px; padding: 0 8px; font: 13px ui-monospace, Consolas, monospace; text-transform: uppercase; }
+.cor-livre #cor-hex.invalido { border-color: var(--vermelho); }
+.cores button[style*="#FFFFFF"], .cores button[style*="#FFFF00"] { box-shadow: inset 0 0 0 1px #D4D4DA; }

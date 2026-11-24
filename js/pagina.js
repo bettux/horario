@@ -1,8 +1,8 @@
 // Utilidades comuns às telas do administrador
-import { exigirSessao } from './auth.js?v=202611241950';
-import { montarLayout } from './layout.js?v=202611241950';
-import { q, sb } from './supabase.js?v=202611241950';
-import { esc, mostrarAlerta } from './util.js?v=202611241950';
+import { exigirSessao } from './auth.js?v=202611242012';
+import { montarLayout } from './layout.js?v=202611242012';
+import { q, sb } from './supabase.js?v=202611242012';
+import { esc, mostrarAlerta } from './util.js?v=202611242012';
 
 export async function iniciarPagina(ativo, { adm = true } = {}) {
   const perfil = await exigirSessao({ adm });

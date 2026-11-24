@@ -114,7 +114,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 
 ### 3.6 Professores
 
-- Cadastro com nome, NIF (único), cor (paleta de 36 cores, com sugestão automática de uma cor livre), ativo e perfil.
+- Cadastro com nome, NIF (único), cor, ativo e perfil. A cor pode ser uma das 10 cores da planilha da coordenação (padrão do Excel), uma das 36 da paleta (com sugestão automática de uma livre) ou qualquer outra, escolhida no seletor ou digitada como código #RRGGBB.
 - **Disponibilidade por período:** dias e faixas de horário. Dia desmarcado significa indisponível.
 - **Matéria → Professor** (`atribuicoes`): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.
 - **Excluir professor:** botão no cadastro. Só exclui quem **não tem aulas nem módulos de pós no período ativo ou em períodos futuros**; quem tem aulas em períodos encerrados deve ser inativado, para preservar o histórico. A confirmação exige digitar o NIF. Junto são apagados a disponibilidade, as atividades, as indicações em Matéria → Professor e o login. Ninguém exclui o próprio cadastro nem o último ADM.

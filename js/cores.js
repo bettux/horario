@@ -7,6 +7,11 @@ export const CORES_PROFESSORES = [
   '#60A5FA', '#818CF8', '#A78BFA', '#C084FC', '#E879F9', '#F472B6', '#94A3B8', '#1E40AF', '#6B21A8',
 ];
 
+// Cores usadas na planilha da coordenação (padrão do Excel), para o sistema ficar parecido com ela
+export const CORES_PLANILHA = [
+  '#00B0F0', '#0070C0', '#156082', '#7030A0', '#FF00FF', '#C00000', '#E97132', '#FFC000', '#FFFF00', '#000000',
+];
+
 function rgb(hex) {
   const h = String(hex || '').replace('#', '');
   const v = h.length === 3 ? h.split('').map((x) => x + x).join('') : h.padEnd(6, '0').slice(0, 6);
