@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611222334';
-import { sb, q, rpc } from './supabase.js?v=202611222334';
-import { esc, DIAS } from './util.js?v=202611222334';
-import { tons } from './cores.js?v=202611222334';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611241950';
+import { sb, q, rpc } from './supabase.js?v=202611241950';
+import { esc, DIAS } from './util.js?v=202611241950';
+import { tons } from './cores.js?v=202611241950';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -144,7 +144,7 @@ function blocoHtml(a, t, extra = '') {
   const subsNomes = t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
   const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambiente_id ? ' · ' + (ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}`;
   return `<button type="button" class="mh-bloco${a.prop ? ' mh-prop' : ''}" draggable="true" data-aula="${a.id}" data-profs="${a.professores.join(' ')}" title="${esc(titulo)} ${a.prop ? ' · PROPOSTA, ainda não gravada' : ''} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
-    <span class="mh-sig">${esc(sigla(c))}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
+    <span class="mh-sig">${esc(sigla(c))}${a.ambiente_id ? `<span class="mh-amb">${esc(ambientes.find((x) => x.id === a.ambiente_id)?.nome || '')}</span>` : ''}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
 }
 
 function turmaHtml(t) {

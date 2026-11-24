@@ -103,7 +103,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
   - sem: não leva professor.
 - **Aulas por semana de uma matéria:** carga do semestre ÷ semanas letivas, arredondado para cima.
 - **Carga completa:** a soma das aulas da subturma × semanas letivas não pode passar da carga da matriz.
-- **Sigla:** gerada pelas iniciais do nome (ex.: BD, PII I) e editável. Aparece nos blocos da grade e na planilha.
+- **Sigla:** gerada pelas iniciais do nome (ex.: BD, PII I) e editável direto na tabela de Matrizes curriculares (digite e aperte Enter; em branco volta à automática). Aparece nos blocos do Montar horário e na planilha.
 
 ### 3.5 Projeto Integrador e Extensão (regra `pi_extensao`)
 
@@ -177,6 +177,7 @@ Total      = Ensino + atividades semanais          → limite: 40
   - arrastando um **professor** ou uma etiqueta da faixa **"Faltam"**;
   - **lançamento direto:** quando o professor tem uma só matéria pendente naquela subturma, a aula entra sem janela;
   - nos outros casos abre a janela de lançamento.
+- **Cada bloco mostra** a sigla da matéria, a sala (quando informada) e o professor. A sala é definida clicando no bloco (campo Ambiente).
 - **Ajustar:**
   - mover arrastando o bloco;
   - 2º professor: soltar um professor em cima da aula;

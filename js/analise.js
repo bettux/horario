@@ -1,5 +1,5 @@
 // Leitura do período inteiro para Dashboard e Auditoria (somente leitura)
-import { sb, q } from './supabase.js?v=202611222334';
+import { sb, q } from './supabase.js?v=202611241950';
 
 export async function carregarAnalise(periodo) {
   const [cursos, matrizes, turmas, comps, aulas, ambientes] = await Promise.all([

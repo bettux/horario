@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611222334';
-import { sb, q, rpc } from './supabase.js?v=202611222334';
-import { esc } from './util.js?v=202611222334';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611241950';
+import { sb, q, rpc } from './supabase.js?v=202611241950';
+import { esc } from './util.js?v=202611241950';
 
 const { main } = await iniciarPagina('turmas');
 

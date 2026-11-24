@@ -1,5 +1,5 @@
 // Calendário escolar em PDF, guardado no armazenamento privado do Supabase (<periodo_id>.pdf)
-import { sb, q } from './supabase.js?v=202611222334';
+import { sb, q } from './supabase.js?v=202611241950';
 
 const BALDE = 'calendarios';
 const arquivo = (periodoId) => `${periodoId}.pdf`;

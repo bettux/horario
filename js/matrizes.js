@@ -1,6 +1,6 @@
-import { iniciarPagina, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611222334';
-import { sb, q } from './supabase.js?v=202611222334';
-import { esc } from './util.js?v=202611222334';
+import { iniciarPagina, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611241950';
+import { sb, q } from './supabase.js?v=202611241950';
+import { esc } from './util.js?v=202611241950';
 
 const { main } = await iniciarPagina('matrizes');
 
@@ -70,7 +70,7 @@ async function carregarComponentes() {
       <thead><tr><th>Componente</th><th>Sigla</th><th>Modalidade</th><th style="text-align:right">${ehPos ? 'Horas' : 'Aulas no semestre'}</th><th>Regra</th><th>Professor</th><th></th></tr></thead>
       <tbody>${lista.length ? lista.map((c) => `<tr class="${c.ativo ? '' : 'inativo'}">
         <td>${esc(c.nome)}${c.ativo ? '' : ' <span class="chip chip-neu">inativo</span>'}</td>
-        <td class="muted">${esc(c.sigla || '')}</td>
+        <td><input class="sigla-in" data-sigla="${c.id}" value="${esc(c.sigla || '')}" maxlength="12" aria-label="Sigla de ${esc(c.nome)}" title="Digite a sigla e saia do campo (Enter ou Tab) para salvar"></td>
         <td>${c.modalidade === 'presencial' || c.modalidade === 'pos' ? MODALIDADES[c.modalidade] : `<span class="chip chip-aviso">${MODALIDADES[c.modalidade]}</span>`}</td>
         <td class="num" style="text-align:right">${c.carga ?? '—'}${c.carga != null ? unidade : ''}</td>
         <td>${c.regra === 'pi_extensao' ? '<span class="chip chip-red">PI / Extensão</span>' : '<span class="muted">Normal</span>'}</td>
@@ -83,6 +83,21 @@ async function carregarComponentes() {
     </div>`;
 
   painel.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { semestreAtual = +b.dataset.s; carregarComponentes(); }));
+  painel.querySelectorAll('[data-sigla]').forEach((inp) => {
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = comps.find((x) => x.id === inp.dataset.sigla)?.sigla || ''; inp.blur(); } });
+    inp.addEventListener('change', async () => {
+      const c = comps.find((x) => x.id === inp.dataset.sigla);
+      const nova = inp.value.trim() || null;
+      if (nova === (c.sigla || null)) return;
+      inp.disabled = true;
+      try {
+        const [salvo] = await q(sb.from('componentes').update({ sigla: nova }).eq('id', c.id).select('sigla'));
+        c.sigla = salvo?.sigla ?? nova; inp.value = c.sigla || '';
+        avisar(`Sigla de ${c.nome}: ${c.sigla}${nova ? '' : ' (automática)'}.`);
+      } catch (e) { inp.value = c.sigla || ''; avisar(e.message, 'erro'); }
+      finally { inp.disabled = false; }
+    });
+  });
   painel.querySelectorAll('[data-editar]').forEach((b) => b.addEventListener('click', () => dialogoComponente(comps.find((c) => c.id === b.dataset.editar), ehPos)));
   painel.querySelector('#novo-comp').addEventListener('click', () => dialogoComponente(null, ehPos));
   painel.querySelector('#novo-sem')?.addEventListener('click', () => { semestreAtual = Math.max(0, ...semestres) + 1; dialogoComponente(null, ehPos); });
@@ -101,7 +116,7 @@ function dialogoComponente(c, ehPos) {
         <div class="campo"><label for="c-nome">Nome</label><input id="c-nome" value="${esc(c.nome)}" required></div>
         <div class="campo"><label for="c-sigla">Sigla</label><input id="c-sigla" value="${esc(c.sigla || '')}" maxlength="12" placeholder="Automática"></div>
       </div>
-      <p class="muted" style="margin:-4px 0 0;font-size:12.5px">A sigla aparece na planilha. Em branco, o sistema usa as iniciais do nome.</p>
+      <p class="muted" style="margin:-4px 0 0;font-size:12.5px">A sigla aparece nos blocos do Montar horário e na planilha. Em branco, o sistema usa as iniciais do nome.</p>
       <div class="linha-form" style="grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="campo"><label for="c-sem">Semestre</label><input id="c-sem" type="number" min="0" max="12" value="${c.semestre}" ${ehPos ? 'disabled' : ''}></div>
         <div class="campo"><label for="c-ordem">Ordem</label><input id="c-ordem" type="number" min="0" value="${c.ordem}"></div>

@@ -405,3 +405,9 @@ body.mh-arrastando-aula .mh-lixeira { display: block; }
 .mh-prop-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; }
 .mh-proposta details summary { cursor: pointer; font-weight: 600; color: var(--aviso-chip); }
 .mh-proposta ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+
+/* sala no bloco do Montar horário */
+.mh-amb { margin-left: 5px; padding: 0 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.65); font-size: 10.5px; font-weight: 600; }
+/* sigla editável na tabela de componentes */
+.sigla-in { width: 92px; height: 30px; border: 1px solid var(--borda); border-radius: 6px; padding: 0 8px; font: inherit; font-size: 13px; font-weight: 600; background: #fff; }
+.sigla-in:focus { outline: 2px solid var(--grafite); outline-offset: 1px; }
