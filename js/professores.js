@@ -1,8 +1,8 @@
-import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611261217';
-import { sb, q, rpc } from './supabase.js?v=202611261217';
-import { contas } from './auth.js?v=202611261217';
-import { esc, mostrarAlerta } from './util.js?v=202611261217';
-import { CORES_PROFESSORES, CORES_PLANILHA, proximaCor } from './cores.js?v=202611261217';
+import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611261243';
+import { sb, q, rpc } from './supabase.js?v=202611261243';
+import { contas } from './auth.js?v=202611261243';
+import { esc, mostrarAlerta } from './util.js?v=202611261243';
+import { CORES_PROFESSORES, CORES_PLANILHA, proximaCor } from './cores.js?v=202611261243';
 
 const { perfil, main } = await iniciarPagina('professores');
 
@@ -48,7 +48,7 @@ function listar() {
   main.querySelector('#lista').innerHTML = `<table style="min-width:560px">
     <thead><tr><th>Nome</th><th>NIF</th><th>Situação</th><th>Acesso ao sistema</th><th></th></tr></thead>
     <tbody>${lista.length ? lista.map((p) => `<tr class="${p.ativo ? '' : 'inativo'}">
-      <td><span class="cor-amostra" style="background:${esc(p.cor)}"></span>${esc(p.nome)}</td>
+      <td><span class="cor-amostra" style="background:${esc(p.cor)}"></span>${esc(p.nome)}${p.apelido ? ` <span class="muted" style="font-size:12.5px">· no horário: ${esc(p.apelido)}</span>` : ''}</td>
       <td class="num">${esc(p.nif)}</td>
       <td>${p.ativo ? '<span class="chip chip-ok">Ativo</span>' : '<span class="chip chip-neu">Inativo</span>'}</td>
       <td>${situacaoAcesso(acessos.find((a) => a.professor_id === p.id))}</td>
@@ -68,6 +68,8 @@ function abrirForm(p) {
   form.innerHTML = `
     <h2>${p ? 'Editar professor' : 'Novo professor'}</h2>
     <div class="campo"><label for="nome">Nome completo</label><input id="nome" value="${esc(p?.nome || '')}" required></div>
+    <div class="campo"><label for="apelido">Nome no horário <span class="muted" style="font-weight:400">(opcional)</span></label><input id="apelido" maxlength="30" value="${esc(p?.apelido || '')}" placeholder="${esc((p?.nome || '').split(' ')[0] || 'Ex.: Canno')}">
+      <span class="muted" style="font-size:12px">Como aparece nos blocos do horário, no Montar horário e nos relatórios por turma. Em branco = primeiro nome. Cadastros, carga e a planilha oficial continuam com o nome completo.</span></div>
     <div class="campo"><label for="nif">NIF</label><input id="nif" inputmode="numeric" value="${esc(p?.nif || '')}" ${a?.tem_acesso ? 'disabled' : ''} required>
       ${a?.tem_acesso ? '<span class="muted" style="font-size:12px">O NIF é o login; não pode ser alterado depois que o acesso foi criado.</span>' : ''}</div>
     <div class="campo"><span class="rotulo">Cor nas grades</span>
@@ -122,6 +124,9 @@ main.querySelector('#form').addEventListener('submit', async (ev) => {
     const p = editando;
     const a = p ? acessos.find((x) => x.professor_id === p.id) : null;
     const nome = form.querySelector('#nome').value.trim().replace(/\s+/g, ' ');
+    const apelido = form.querySelector('#apelido').value.trim().replace(/\s+/g, ' ') || null;
+    const curto = (x) => (x.apelido || x.nome.split(' ')[0]).toLowerCase();
+    const igual = profs.find((x) => x.id !== p?.id && x.ativo && curto(x) === (apelido || nome.split(' ')[0]).toLowerCase());
     const nif = form.querySelector('#nif').value.replace(/\D/g, '');
     const cor = form.querySelector('#cor-hex').value.trim().toUpperCase().replace(/^([0-9A-F]{6})$/, '#$1');
     if (!/^#[0-9A-F]{6}$/.test(cor)) throw new Error('Cor inválida. Use o formato #RRGGBB, por exemplo #00B0F0.');
@@ -133,11 +138,12 @@ main.querySelector('#form').addEventListener('submit', async (ev) => {
     if (p && p.auth_user_id && p.auth_user_id === (await sb.auth.getUser()).data.user?.id && !ativo) throw new Error('Você não pode inativar o seu próprio cadastro.');
 
     let id = p?.id;
-    const dados = { nome, cor, ativo, ...(a?.tem_acesso ? {} : { nif, perfil: perfilNovo }) };
+    const dados = { nome, apelido, cor, ativo, ...(a?.tem_acesso ? {} : { nif, perfil: perfilNovo }) };
     if (p) await q(sb.from('professores').update(dados).eq('id', id));
     else { const [novo] = await q(sb.from('professores').insert(dados).select()); id = novo.id; }
 
     let aviso = p ? 'Professor salvo.' : 'Professor cadastrado.';
+    if (igual) aviso += ` Atenção: ${igual.nome} aparece no horário com o mesmo nome (${igual.apelido || igual.nome.split(' ')[0]}). Use um "Nome no horário" diferente para não confundir.`;
     if (criarAcesso && ativo) {
       await contas('criar_acesso', { professor_id: id });
       aviso += ` Acesso criado: login ${nif}, senha provisória ${nif}cfp109 (7 dias).`;

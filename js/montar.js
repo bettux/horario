@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611261217';
-import { sb, q, rpc } from './supabase.js?v=202611261217';
-import { esc, DIAS } from './util.js?v=202611261217';
-import { tons } from './cores.js?v=202611261217';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611261243';
+import { sb, q, rpc } from './supabase.js?v=202611261243';
+import { esc, DIAS } from './util.js?v=202611261243';
+import { tons } from './cores.js?v=202611261243';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -16,6 +16,11 @@ main.innerHTML = `
       <div class="campo" style="width:220px"><label for="curso">Curso</label><select id="curso"></select></div>
     </div>
   </header>
+  <div class="abas mh-vistas" role="tablist">
+    <button class="aba" role="tab" data-vista="grade" aria-selected="true">Grade</button>
+    <button class="aba" role="tab" data-vista="profs" aria-selected="false">Professores das matérias</button>
+  </div>
+  <div id="vista-profs" class="oculto"></div>
   <div class="mh-acoes">
     <span id="presenca" class="mh-presenca"></span>
     <button type="button" class="btn btn-s" id="desfazer" disabled title="Desfazer a última ação (Ctrl+Z)">Desfazer</button>
@@ -40,7 +45,7 @@ const [cursos, matrizes, horarios, profsTodos, ambientesTodos] = await Promise.a
   q(sb.from('cursos').select('id, nome, sigla, nivel').eq('nivel', 'graduacao').eq('ativo', true).order('nome')),
   q(sb.from('matrizes').select('id, curso_id, nome')),
   q(sb.from('horarios_graduacao').select('tipo_dia, numero, inicio, fim').order('numero')),
-  q(sb.from('professores').select('id, nome, cor, ativo').order('nome')),
+  q(sb.from('professores').select('id, nome, apelido, cor, ativo').order('nome')),
   q(sb.from('ambientes').select('id, nome').order('nome')),
 ]);
 const HS = horarios.filter((h) => h.tipo_dia === 'semana'), HSAB = horarios.filter((h) => h.tipo_dia === 'sabado');
@@ -48,7 +53,8 @@ const hm = (t) => String(t || '').slice(0, 5);
 const ocupaHorario = (c) => ['presencial', 'ead_sincrona'].includes(c.modalidade);
 const prof = (id) => profsTodos.find((p) => p.id === id);
 const pnome = (id) => prof(id)?.nome || '?';
-const primeiro = (id) => pnome(id).split(' ')[0];
+// nome curto que aparece no horário: apelido ou primeiro nome
+const primeiro = (id) => (prof(id)?.apelido || '').trim() || pnome(id).split(' ')[0];
 const sigla = (c) => c?.sigla || c?.nome || '?';
 
 let periodo = null, cursoId = null, semanas = 20;
@@ -65,6 +71,76 @@ let naoCoube = [];
 $m('#curso').innerHTML = cursos.map((c) => `<option value="${c.id}">${esc(c.sigla ? `${c.sigla} · ${c.nome}` : c.nome)}</option>`).join('');
 try { const c = new URLSearchParams(location.search).get('curso') || localStorage.getItem('montar-curso'); if (cursos.some((x) => x.id === c)) { $m('#curso').value = c; localStorage.setItem('montar-curso', c); } } catch { /* ignora */ }
 cursoId = $m('#curso').value;
+
+// ---------- abas: Grade | Professores das matérias ----------
+let vista = 'grade', compet = [];
+main.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
+  if (vista === 'profs' && main.querySelector('.pm-card.pm-sujo') && !window.confirm('Há professores alterados e não salvos. Sair mesmo assim?')) return;
+  vista = b.dataset.vista;
+  main.querySelectorAll('[data-vista]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  aplicarVista();
+}));
+function aplicarVista() {
+  const grade = vista === 'grade';
+  for (const sel of ['.mh-acoes', '.mh', '#proposta']) main.querySelector(sel)?.classList.toggle('oculto-vista', !grade);
+  $m('#vista-profs').classList.toggle('oculto', grade);
+  if (!grade) desenharProfsMaterias();
+}
+
+async function desenharProfsMaterias() {
+  const area = $m('#vista-profs');
+  const listaT = turmas.filter((t) => t.subturmas.length);
+  if (!listaT.length) { area.innerHTML = '<div class="card" style="padding:20px"><p style="margin:0">Nenhuma turma com subturmas neste curso e período.</p></div>'; return; }
+  const matDe = (t) => comps.filter((c) => c.matriz_id === t.matriz_id && c.semestre === t.semestre && c.professor !== 'sem');
+  try { compet = await q(sb.from('competencias').select('professor_id, componente_id, nivel').in('componente_id', [...new Set(listaT.flatMap((t) => matDe(t).map((c) => c.id)))])); }
+  catch { compet = []; }
+  const nivelDe = (pid, cid) => compet.find((x) => x.professor_id === pid && x.componente_id === cid)?.nivel || '';
+  const ORD = { domino: 0, conheco: 1, '': 2 };
+  const opcoes = (sel, cid) => '<option value="">—</option>' + profsTodos.filter((p) => p.ativo || p.id === sel)
+    .map((p) => ({ p, n: nivelDe(p.id, cid) })).sort((a, b) => ORD[a.n] - ORD[b.n] || a.p.nome.localeCompare(b.p.nome, 'pt-BR'))
+    .map(({ p, n }) => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${n === 'domino' ? '★ ' : n === 'conheco' ? '☆ ' : ''}${esc(p.nome)}${p.apelido ? ` (${esc(p.apelido)})` : ''}${p.ativo ? '' : ' (inativo)'}</option>`).join('');
+  const porSemana = (c) => alvo(c);
+  const cur = cursos.find((c) => c.id === cursoId);
+  area.innerHTML = `<p class="muted" style="margin:0 0 12px;font-size:13px;line-height:1.5">Quem dá cada matéria em cada subturma neste período. Na lista, ★ domina e ☆ conhece a matéria (marcado na coleta) e aparecem primeiro. "Juntas / semana" = quantas aulas por semana são da turma inteira (0 = separadas, o normal).</p>`
+    + listaT.map((t) => {
+      const subs = t.subturmas, ms = matDe(t);
+      return `<section class="card pm-card" data-pm="${t.id}">
+        <div class="mh-tcab"><strong>${esc(cur?.sigla || '')} · ${t.semestre}º semestre · ${esc(t.identificacao)}</strong>
+          <span style="display:flex;gap:8px;align-items:center"><span class="chip chip-aviso pm-flag oculto">Não salvo</span><button type="button" class="btn btn-p btn-s" data-pm-salvar="${t.id}" disabled>Salvar professores</button></span></div>
+        <div class="tabela-box" style="overflow:auto"><table style="min-width:${300 + subs.length * 210}px">
+          <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:200px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? `<th></th><th>${subs.map((s) => esc(s.nome)).join('+')} juntas / semana</th>` : ''}</tr></thead>
+          <tbody>${ms.map((c) => `<tr><td>${esc(c.nome)}${c.modalidade.startsWith('ead') ? ' <span class="chip chip-neu">EAD</span>' : ''}${c.professor === 'opcional' ? ' <span class="muted" style="font-size:12px">(opcional)</span>' : ''}</td>
+            ${subs.map((s) => `<td><select data-sub="${s.id}" data-comp="${c.id}" aria-label="${esc(c.nome)} ${esc(s.nome)}">${opcoes(atribDe(s.id, c.id) || '', c.id)}</select></td>`).join('')}
+            ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>
+              <td>${c.modalidade === 'ead_assincrona' ? '<span class="muted">—</span>' : `<input type="number" min="0" max="${porSemana(c)}" value="${conjuntas.get(`${t.id}|${c.id}`) || 0}" data-conj="${c.id}" style="width:64px"> <span class="muted" style="font-size:12px">de ${porSemana(c)}</span>`}</td>` : ''}</tr>`).join('')
+            || `<tr><td colspan="${subs.length + 3}" class="muted">A matriz não tem matérias com professor neste semestre.</td></tr>`}</tbody></table></div>
+      </section>`;
+    }).join('');
+  area.querySelectorAll('.pm-card').forEach((card) => {
+    const t = turmas.find((x) => x.id === card.dataset.pm);
+    const sujar = () => { card.classList.add('pm-sujo'); card.querySelector('.pm-flag').classList.remove('oculto'); card.querySelector('[data-pm-salvar]').disabled = false; };
+    card.querySelectorAll('select, input').forEach((x) => x.addEventListener('change', sujar));
+    card.querySelectorAll('[data-igual]').forEach((b) => b.addEventListener('click', () => {
+      const sels = [...card.querySelectorAll(`select[data-comp="${b.dataset.igual}"]`)];
+      sels.slice(1).forEach((x) => { x.value = sels[0].value; }); sujar();
+    }));
+    card.querySelector('[data-pm-salvar]').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const itens = [...card.querySelectorAll('select[data-sub]')].filter((x) => x.value).map((x) => ({ subturma_id: x.dataset.sub, componente_id: x.dataset.comp, professor_id: x.value }));
+        await rpc('salvar_atribuicoes', { p_turma: t.id, p_itens: itens });
+        const conj = [...card.querySelectorAll('[data-conj]')].map((x) => ({ turma_id: t.id, componente_id: x.dataset.conj, aulas: Math.max(0, Math.min(10, +x.value || 0)) }));
+        const zerar = conj.filter((x) => !x.aulas).map((x) => x.componente_id);
+        if (zerar.length) await q(sb.from('turma_conjuntas').delete().eq('turma_id', t.id).in('componente_id', zerar));
+        const gravar = conj.filter((x) => x.aulas);
+        if (gravar.length) await q(sb.from('turma_conjuntas').upsert(gravar, { onConflict: 'turma_id,componente_id' }));
+        card.classList.remove('pm-sujo'); card.querySelector('.pm-flag').classList.add('oculto');
+        avisar(`Professores da turma ${t.identificacao} salvos. A faixa "Faltam" da Grade já foi atualizada.`);
+        await carregar();
+      } catch (e) { ev.target.disabled = false; mostrarErro($m('#msg'), e); }
+    });
+  });
+}
 
 // ---------- dados ----------
 async function carregar() {
@@ -101,6 +177,7 @@ async function carregar() {
   pico = new Map();
   for (const c of carga) pico.set(c.professor_id, Math.max(pico.get(c.professor_id) || 0, Number(c.total)));
   desenhar();
+  if (vista === 'profs' && !main.querySelector('.pm-card.pm-sujo')) desenharProfsMaterias();
 }
 
 // quanto falta por semana de uma matéria numa subturma
@@ -207,11 +284,11 @@ function turmaHtml(t) {
 }
 
 function desenharProfs() {
-  const lista = profsTodos.filter((p) => p.ativo && (!filtro || p.nome.toLowerCase().includes(filtro)));
+  const lista = profsTodos.filter((p) => p.ativo && (!filtro || p.nome.toLowerCase().includes(filtro) || (p.apelido || '').toLowerCase().includes(filtro)));
   $m('#profs').innerHTML = lista.map((p) => {
     const c = pico.get(p.id) || 0;
     return `<div class="mh-prof${destaque === p.id ? ' mh-prof-ativo' : ''}" draggable="true" data-prof="${p.id}" title="${esc(p.nome)} · clique para destacar as aulas dele">
-      <span class="mh-dot" style="background:${tons(p.cor).borda}"></span><span class="mh-pn">${esc(p.nome)}</span>
+      <span class="mh-dot" style="background:${tons(p.cor).borda}"></span><span class="mh-pn">${esc(p.nome)}${p.apelido ? ` <span class="muted">(${esc(p.apelido)})</span>` : ''}</span>
       <span class="mh-pc${c > 40 ? ' mh-pc-alto' : c >= 36 ? ' mh-pc-medio' : ''}">${c ? `${c}/40` : '—'}</span></div>`;
   }).join('') || '<p class="muted" style="margin:0;font-size:12.5px">Nenhum professor encontrado.</p>';
   $m('#profs').querySelectorAll('[data-prof]').forEach((el) => el.addEventListener('click', () => {
@@ -761,6 +838,11 @@ async function aceitarProposta() {
 }
 
 // ---------- janela de lançar / editar ----------
+function outrasDaMateria(comp, subIds, ignorar) {
+  const chave = [...subIds].sort().join();
+  return aulas.filter((x) => x.id !== ignorar && x.componente_id === comp && turmas.some((t) => t.id === x.turma_id && t.subturmas.some((s) => subIds.includes(s.id)))
+    && [...x.subturmas].sort().join() === chave);
+}
 function dialogoAula(alvoPos, origem, aula = null) {
   const t = turmas.find((x) => x.id === alvoPos.turma);
   const subs = t.subturmas;
@@ -812,6 +894,7 @@ function dialogoAula(alvoPos, origem, aula = null) {
       <div style="display:flex;flex-wrap:wrap;gap:14px">${subs.map((s) => `<label class="check"><input type="radio" name="a-sub" value="${s.id}"${!todas && subsSel.length === 1 && subsSel[0] === s.id ? ' checked' : ''}> ${esc(s.nome)}</label>`).join('')}
       ${subs.length > 1 ? `<label class="check"><input type="radio" name="a-sub" value="todas"${todas ? ' checked' : ''}> Turma inteira (${subs.map((s) => esc(s.nome)).join('+')})</label>` : ''}</div></fieldset>
     <div class="campo"><label for="a-amb">Ambiente</label><input id="a-amb" list="a-ambs" value="${esc(ambPadrao)}" placeholder="Ex.: Lab 07"><datalist id="a-ambs">${ambientes.map((x) => `<option value="${esc(x.nome)}">`).join('')}</datalist></div>
+    <label class="check" id="a-todas-box"><input type="checkbox" id="a-todas"> <span id="a-todas-txt">Usar esta sala nas outras aulas desta matéria</span></label>
     <label class="check oculto" id="a-lista-box"><input type="checkbox" id="a-lista" checked> <span id="a-lista-txt"></span></label>
     ${aula ? '<div style="border-top:1px solid var(--linha);padding-top:12px"><button type="button" class="btn btn-p btn-perigo" id="a-remover">Remover esta aula</button></div>' : ''}`;
 
@@ -835,9 +918,21 @@ function dialogoAula(alvoPos, origem, aula = null) {
         await q(sb.from('atribuicoes').upsert(subIds.map((s) => ({ subturma_id: s, componente_id: comp, professor_id: p1 })), { onConflict: 'subturma_id,componente_id' }));
       }
       const nomeC = comps.find((x) => x.id === comp)?.nome || 'aula';
-      if (aula) registrar(`editar ${nomeC}`, () => gravarSnap(antes, aula.id));
-      else registrar(`lançar ${nomeC}`, () => rpc('remover_aula', { p_aula: id }));
-      avisar(aula ? 'Aula atualizada.' : 'Aula lançada.');
+      // mesma sala nas outras aulas da matéria (mesmas subturmas) nesta turma
+      const sala = d.querySelector('#a-amb').value.trim() || null;
+      const irmas = d.querySelector('#a-todas').checked ? outrasDaMateria(comp, subIds, aula?.id || id).filter((x) => (ambientes.find((y) => y.id === x.ambiente_id)?.nome || null) !== sala) : [];
+      const antesIrmas = irmas.map((x) => [x.id, snapAula(x)]);
+      const falhas = [];
+      for (const x of irmas) {
+        try { await gravarSnap({ ...snapAula(x), amb: sala }, x.id); }
+        catch (e) { falhas.push(`${DIAS[x.dia_semana]}: ${e.linhas?.[0] || e.message}`); }
+      }
+      const desfazIrmas = async () => { for (const [xid, sn] of antesIrmas) await gravarSnap(sn, xid).catch(() => {}); };
+      if (aula) registrar(`editar ${nomeC}`, async () => { await desfazIrmas(); await gravarSnap(antes, aula.id); });
+      else registrar(`lançar ${nomeC}`, async () => { await desfazIrmas(); await rpc('remover_aula', { p_aula: id }); });
+      const extra = irmas.length ? ` Sala aplicada em mais ${irmas.length - falhas.length} aula(s).` : '';
+      avisar((aula ? 'Aula atualizada.' : 'Aula lançada.') + extra);
+      if (falhas.length) avisar(`Não deu para trocar a sala em: ${falhas.join(' · ')}`, 'aviso');
       await carregar();
     },
   });
@@ -848,6 +943,15 @@ function dialogoAula(alvoPos, origem, aula = null) {
     const atual = Number($d('#a-ini').value) || alvoPos.slot;
     $d('#a-ini').innerHTML = L.map((h) => `<option value="${h.numero}"${h.numero === atual ? ' selected' : ''}>${hm(h.inicio)} (${h.numero}ª aula)</option>`).join('');
   };
+  // outras aulas da mesma matéria nesta turma, com as mesmas subturmas
+  const checarTodas = () => {
+    const comp = $d('#a-comp').value, subEsc = $d('input[name="a-sub"]:checked')?.value;
+    const subIds = subEsc === 'todas' ? subs.map((s) => s.id) : subEsc ? [subEsc] : [];
+    const n = comp && subIds.length ? outrasDaMateria(comp, subIds, aula?.id).length : 0;
+    $d('#a-todas-box').classList.toggle('oculto', !n);
+    const quem = subEsc === 'todas' || subs.length < 2 ? '' : ` (${subs.find((x) => x.id === subEsc)?.nome})`;
+    if (n) $d('#a-todas-txt').textContent = `Usar esta sala nas outras ${n} aula(s) de ${sigla(comps.find((x) => x.id === comp))}${quem} desta turma`;
+  };
   const checarLista = () => {
     const p1 = $d('#a-prof').value, comp = $d('#a-comp').value, subEsc = $d('input[name="a-sub"]:checked')?.value;
     const subIds = subEsc === 'todas' ? subs.map((s) => s.id) : subEsc ? [subEsc] : [];
@@ -856,6 +960,9 @@ function dialogoAula(alvoPos, origem, aula = null) {
     if (precisa) $d('#a-lista-txt').textContent = `Salvar também na lista de professores (${primeiro(p1)} dá esta matéria nesta turma)`;
   };
   preencherInicio();
+  checarTodas();
+  $d('#a-comp').addEventListener('change', checarTodas);
+  dlg.querySelectorAll('input[name="a-sub"]').forEach((x) => x.addEventListener('change', checarTodas));
   $d('#a-dia').addEventListener('change', () => {
     preencherInicio();
     if (Number($d('#a-dia').value) === 6 && subs.length > 1) { const r = $d('input[name="a-sub"][value="todas"]'); if (r) r.checked = true; }

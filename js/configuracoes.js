@@ -1,8 +1,9 @@
-import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261217';
-import { sb, q, rpc } from './supabase.js?v=202611261217';
-import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261217';
-import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261217';
-import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261217';
+import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261243';
+import { sb, q, rpc } from './supabase.js?v=202611261243';
+import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261243';
+import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261243';
+import { carregarAnalise } from './analise.js?v=202611261243';
+import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261243';
 
 const { main } = await iniciarPagina('configuracoes');
 
@@ -92,6 +93,15 @@ async function abaPeriodos() {
   });
 
   area.querySelectorAll('[data-visivel]').forEach((c) => c.addEventListener('change', async () => {
+    // antes de publicar, roda a Auditoria: erro bloqueia; aviso deixa publicar mesmo assim
+    if (c.checked) {
+      c.disabled = true;
+      let pode = false;
+      try { pode = await conferirAntesDePublicar(periodos.find((p) => p.id === c.dataset.visivel)); }
+      catch (e) { avisar(e.message, 'erro'); }
+      c.disabled = false;
+      if (!pode) { c.checked = false; return; }
+    }
     try { await q(sb.from('periodos').update({ visivel_professor: c.checked }).eq('id', c.dataset.visivel)); avisar(c.checked ? 'Período liberado para os professores.' : 'Período ocultado dos professores.'); abrir('periodos'); }
     catch (e) { c.checked = !c.checked; avisar(e.message, 'erro'); }
   }));
@@ -134,6 +144,41 @@ async function abaPeriodos() {
       },
     });
   }));
+}
+
+async function conferirAntesDePublicar(p) {
+  avisar(`Conferindo ${periodoRotulo(p)} na Auditoria…`, 'aviso');
+  const [erros, an] = await Promise.all([rpc('auditoria', { p_periodo: p.id }), carregarAnalise(p)]);
+  const avisos = [];
+  for (const t of an.turmas) {
+    const st = t.pos ? an.situacaoPos(t) : an.situacaoGrad(t);
+    if (!t.pos && !st.aulas) avisos.push(`${t.rotulo}: turma sem nenhuma aula no horário.`);
+    else for (const a of st.avisos) avisos.push(`${t.rotulo}: ${a}`);
+    if (t.pos && !st.ofertas) avisos.push(`${t.rotulo}: nenhum módulo de pós planejado.`);
+  }
+  const lista = (xs) => `<ul style="margin:0;padding-left:20px;line-height:1.55;max-height:40vh;overflow:auto">${xs.slice(0, 30).map((x) => `<li>${esc(x)}</li>`).join('')}${xs.length > 30 ? `<li class="muted">e mais ${xs.length - 30}…</li>` : ''}</ul>`;
+  if (erros.length) {
+    abrirDialogo({
+      titulo: `Ainda não dá para publicar ${periodoRotulo(p)}`, confirmar: 'Abrir a Auditoria',
+      corpo: `<div class="alerta alerta-erro" style="margin:0">A Auditoria encontrou <strong>${erros.length} erro(s)</strong>. Corrija antes de liberar o período para os professores.</div>${lista(erros.map((e) => e.problema))}`,
+      aoConfirmar: () => { location.href = 'auditoria.html'; },
+    });
+    return false;
+  }
+  if (avisos.length) {
+    return confirmarLista(`Publicar ${periodoRotulo(p)} com pendências?`,
+      `<div class="alerta alerta-aviso" style="margin:0">Nenhum erro, mas há <strong>${avisos.length} aviso(s)</strong> (por exemplo, turmas ou matérias incompletas). Os professores vão ver o horário como está.</div>${lista(avisos)}`,
+      'Publicar mesmo assim');
+  }
+  return true;
+}
+function confirmarLista(titulo, corpo, rotulo) {
+  return new Promise((resolve) => {
+    let ok = false;
+    const d = abrirDialogo({ titulo, corpo, confirmar: rotulo, aoConfirmar: () => { ok = true; } });
+    d.querySelector('[data-cancelar]').textContent = 'Voltar e corrigir';
+    d.addEventListener('close', () => resolve(ok));
+  });
 }
 
 // início/fim da pós: os dois em branco (igual à graduação) ou os dois preenchidos

@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611261217';
-import { tons } from './cores.js?v=202611261217';
-import { sb, q, rpc } from './supabase.js?v=202611261217';
-import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, diaIso, duracao } from './util.js?v=202611261217';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611261243';
+import { tons } from './cores.js?v=202611261243';
+import { sb, q, rpc } from './supabase.js?v=202611261243';
+import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, diaIso, duracao } from './util.js?v=202611261243';
 
 const { main } = await iniciarPagina('pos');
 
@@ -32,7 +32,7 @@ const [periodos, cursos, matrizes, horariosPos, profs] = await Promise.all([
   q(sb.from('cursos').select('*')),
   q(sb.from('matrizes').select('*')),
   q(sb.from('horarios_pos').select('*')),
-  q(sb.from('professores').select('id, nome, cor, ativo').order('nome')),
+  q(sb.from('professores').select('id, nome, apelido, cor, ativo').order('nome')),
 ]);
 const HP = Object.fromEntries(horariosPos.map((h) => [h.formato, { inicio: h.inicio.slice(0, 5), fim: h.fim.slice(0, 5), minutos: h.minutos_aula }]));
 const profNome = (id) => profs.find((p) => p.id === id)?.nome || '?';
@@ -119,7 +119,7 @@ function desenhar() {
       const n = tot.findIndex((x) => x.id === e.id) + 1;
       const t = tons(profCor(of.professor_id));
       return `<button type="button" class="pcel pcel-aula" data-mod="${e.componente_id}" style="background:${t.fundo};border-color:${t.borda};color:${t.texto}" title="${esc(e.componente)} · ${esc(profNome(of.professor_id))}">
-        <b>${esc(e.componente)}</b><span>${esc(profNome(of.professor_id).split(' ')[0])} · ${e.inicio.slice(0, 5)}–${e.fim.slice(0, 5)} · ${n}/${tot.length}</span></button>`;
+        <b>${esc(e.componente)}</b><span>${esc(profs.find((p) => p.id === of.professor_id)?.apelido || profNome(of.professor_id).split(' ')[0])} · ${e.inicio.slice(0, 5)}–${e.fim.slice(0, 5)} · ${n}/${tot.length}</span></button>`;
     }).join('');
   };
   const cab = modo === 'semana'

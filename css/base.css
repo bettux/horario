@@ -482,3 +482,11 @@ body.mh-escolhendo { padding-bottom: 90px; }
 .cl-dlg { width: min(760px, calc(100vw - 32px)); }
 .cl-ed-lista { max-height: 55vh; overflow: auto; }
 @media (pointer: coarse) { .mp-niveis .sb { padding: 12px 14px; } }
+/* Montar horário: abas Grade / Professores das matérias */
+.mh-vistas { margin-bottom: 12px; }
+.oculto-vista { display: none !important; }
+#vista-profs { display: flex; flex-direction: column; gap: 14px; }
+#vista-profs.oculto { display: none; }
+.pm-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pm-card select { width: 100%; height: 34px; border: 1px solid var(--borda); border-radius: 7px; padding: 0 6px; font: inherit; font-size: 13px; background: #fff; }
+.pm-card.pm-sujo { box-shadow: 0 0 0 2px #F5B301; }

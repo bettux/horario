@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261217';
-import { sb, q, rpc } from './supabase.js?v=202611261217';
-import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611261217';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261243';
+import { sb, q, rpc } from './supabase.js?v=202611261243';
+import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611261243';
 
 // Relatórios de aulas por professor e por turma, prontos para imprimir ou salvar em PDF (A4 paisagem)
 const { main } = await iniciarPagina('relatorios');
@@ -41,7 +41,7 @@ async function carregarBase() {
     q(sb.from('v_encontros').select('*').eq('periodo_id', periodoId)),
     turmas.length ? q(sb.from('ofertas_pos').select('id, turma_id, componente_id, professor_id, modo, formato').in('turma_id', turmas.map((t) => t.id))) : [],
     q(sb.from('horarios_graduacao').select('tipo_dia, numero, inicio, fim').order('numero')),
-    q(sb.from('professores').select('id, nome, nif, ativo').order('nome')),
+    q(sb.from('professores').select('id, nome, apelido, nif, ativo').order('nome')),
     q(sb.from('atividades').select('professor_id, descricao, quantidade, frequencia').eq('periodo_id', periodoId)),
     rpc('carga_todos', { p_periodo: periodoId }),
     q(sb.from('ambientes').select('id, nome')),
@@ -139,7 +139,7 @@ function relProfessor(p) {
   const grad = aulas.reduce((n, a) => n + a.quantidade, 0);
   const ativ = base.atividades.filter((a) => a.professor_id === p.id);
   const celula = (l) => l.map((a) => {
-    const outros = a.profs.filter((x) => x.id !== p.id).map((x) => x.nome.split(' ')[0]);
+    const outros = a.profs.filter((x) => x.id !== p.id).map((x) => x.apelido || x.nome.split(' ')[0]);
     return `<div class="rel-aula"><strong>${esc(a.comp?.nome)}</strong><span>${esc(a.turma?.rotulo)}${nomesSubs(a) ? ' · ' + esc(nomesSubs(a)) : ''}</span>
       ${a.ambiente ? `<span>${esc(a.ambiente)}</span>` : ''}${outros.length ? `<span>Com: ${esc(outros.join(', '))}</span>` : ''}</div>`;
   }).join('');
@@ -169,7 +169,7 @@ function relTurma(t) {
   }
   const aulas = base.aulas.filter((a) => a.turma_id === t.id);
   const celula = (l) => l.map((a) => `<div class="rel-aula"><strong>${esc(a.comp?.nome)}</strong>
-    ${nomesSubs(a) ? `<span>${esc(nomesSubs(a))}</span>` : ''}<span>${esc(a.profs.map((x) => x.nome).join(' + ') || 'Sem professor')}</span>${a.ambiente ? `<span>${esc(a.ambiente)}</span>` : ''}</div>`).join('');
+    ${nomesSubs(a) ? `<span>${esc(nomesSubs(a))}</span>` : ''}<span>${esc(a.profs.map((x) => x.apelido || x.nome).join(' + ') || 'Sem professor')}</span>${a.ambiente ? `<span>${esc(a.ambiente)}</span>` : ''}</div>`).join('');
   // resumo por componente
   const porComp = new Map();
   for (const a of aulas) {
