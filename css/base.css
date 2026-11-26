@@ -444,3 +444,7 @@ body.mh-escolhendo { padding-bottom: 90px; }
   .mh-slot-sab span { font-size: 11.5px; }
   .mh-painel { max-height: 300px; }
 }
+/* calendário da pós */
+.pos-cal { border: 1px dashed var(--borda); border-radius: 10px; padding: 10px 12px 12px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.pos-cal legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.pos-cal-txt { display: inline-flex; align-items: center; min-height: 38px; font-size: 13.5px; font-weight: 600; white-space: nowrap; }

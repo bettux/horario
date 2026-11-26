@@ -109,7 +109,10 @@ export async function gerarPlanilha(ExcelJS, modelo, d) {
 
   const per = d.periodo;
   const semanas = Number(per.semanas_letivas) || 20;
-  const meses = colunasMeses(per.inicio, per.fim);
+  // meses: da primeira à última data com graduação ou pós; a graduação só preenche os meses dela
+  const posIni = per.pos_inicio || per.inicio, posFim = per.pos_fim || per.fim;
+  const meses = colunasMeses(posIni < per.inicio ? posIni : per.inicio, posFim > per.fim ? posFim : per.fim);
+  const doGrad = meses.map((m) => m.ate >= per.inicio && m.de <= per.fim);
   const por = (lista) => new Map(lista.map((x) => [x.id, x]));
   const cursos = por(d.cursos), matrizes = por(d.matrizes), comps = por(d.componentes), profs = por(d.professores), turmas = por(d.turmas);
   const cursoDaTurma = (t) => cursos.get(matrizes.get(t.matriz_id)?.curso_id) || { nome: '?', sigla: '?', nivel: 'graduacao' };
@@ -157,7 +160,7 @@ export async function gerarPlanilha(ExcelJS, modelo, d) {
     ws.getCell('B3').value = p.nome;
     prepararMeses(ws, meses, avisos, p.nome);
     const colsMes = meses.map((_, i) => letra(P.col0 + i));
-    const todas = (row, valor) => colsMes.forEach((cl) => { ws.getCell(`${cl}${row}`).value = typeof valor === 'function' ? valor(cl) : valor; });
+    const todas = (row, valor) => colsMes.forEach((cl, k) => { if (doGrad[k]) ws.getCell(`${cl}${row}`).value = typeof valor === 'function' ? valor(cl) : valor; });
 
     // graduação: presencial, EaD assíncrona e EaD síncrona
     const grupos = { presencial: [], ead_assincrona: [], ead_sincrona: [] };

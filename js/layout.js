@@ -1,6 +1,6 @@
-import { TITULO_SISTEMA } from './config.js?v=202611261200';
-import { sair } from './auth.js?v=202611261200';
-import { esc } from './util.js?v=202611261200';
+import { TITULO_SISTEMA } from './config.js?v=202611261211';
+import { sair } from './auth.js?v=202611261211';
+import { esc } from './util.js?v=202611261211';
 
 // Menu do administrador. "pronto: false" = tela ainda não entregue.
 const MENU_ADM = [

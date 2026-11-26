@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611261200';
-import { sb, q, rpc } from './supabase.js?v=202611261200';
-import { esc, somaDias, segundaDaSemana } from './util.js?v=202611261200';
-import { htmlSemana, limitarSemana, rotuloSemana } from './semana.js?v=202611261200';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611261211';
+import { sb, q, rpc } from './supabase.js?v=202611261211';
+import { esc, somaDias, segundaDaSemana } from './util.js?v=202611261211';
+import { htmlSemana, limitarSemana, rotuloSemana } from './semana.js?v=202611261211';
 
 const { main } = await iniciarPagina('agenda');
 

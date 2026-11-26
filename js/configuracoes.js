@@ -1,8 +1,8 @@
-import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261200';
-import { sb, q, rpc } from './supabase.js?v=202611261200';
-import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261200';
-import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261200';
-import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261200';
+import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261211';
+import { sb, q, rpc } from './supabase.js?v=202611261211';
+import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261211';
+import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261211';
+import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261211';
 
 const { main } = await iniciarPagina('configuracoes');
 
@@ -42,18 +42,19 @@ async function abaPeriodos() {
     <div style="display:flex;flex-direction:column;gap:20px">
       <section class="card tabela-box">
         <table>
-          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Semanas letivas</th><th>Situação</th><th>Visível para professores</th><th>Calendário escolar</th><th></th></tr></thead>
+          <thead><tr><th>Período</th><th>Início</th><th>Fim</th><th>Pós-graduação</th><th>Semanas letivas</th><th>Situação</th><th>Visível para professores</th><th>Calendário escolar</th><th></th></tr></thead>
           <tbody>${periodos.length ? periodos.map((p) => {
             const sem = p.semanas_letivas;
             const sit = hoje < p.inicio ? '<span class="chip chip-aviso">Futuro</span>' : hoje > p.fim ? '<span class="chip chip-neu">Encerrado</span>' : '<span class="chip chip-ok">Em andamento</span>';
             return `<tr><td><strong>${periodoRotulo(p)}</strong></td><td class="num">${ddmmaaaa(parseData(p.inicio))}</td><td class="num">${ddmmaaaa(parseData(p.fim))}</td>
+              <td class="num">${p.pos_inicio ? `${ddmmaaaa(parseData(p.pos_inicio))} a ${ddmmaaaa(parseData(p.pos_fim))}` : '<span class="muted">igual à graduação</span>'}</td>
               <td class="num">${sem}</td><td>${sit}</td>
               <td><label class="check"><input type="checkbox" data-visivel="${p.id}"${p.visivel_professor ? ' checked' : ''}> ${p.visivel_professor ? 'Sim' : 'Não'}</label></td>
               <td><div class="acoes">${p.calendario_em
                 ? `<button class="btn btn-s" data-cal-ver="${p.id}">Ver</button><button class="btn btn-s" data-cal-enviar="${p.id}">Trocar</button><button class="btn btn-s" data-cal-remover="${p.id}">Remover</button>`
                 : `<button class="btn btn-s" data-cal-enviar="${p.id}">Enviar PDF</button>`}</div></td>
               <td><div class="acoes"><button class="btn btn-s" data-editar="${p.id}">Editar</button></div></td></tr>`;
-          }).join('') : '<tr><td colspan="8" class="muted">Nenhum período cadastrado. Crie o primeiro ao lado.</td></tr>'}</tbody>
+          }).join('') : '<tr><td colspan="9" class="muted">Nenhum período cadastrado. Crie o primeiro ao lado.</td></tr>'}</tbody>
         </table>
         <input type="file" id="cal-arquivo" accept="application/pdf,.pdf" hidden>
         <p class="muted" style="margin:0;padding:10px 16px 14px;font-size:12.5px">O professor só vê os períodos marcados como visíveis (o seu atual e, se quiser, o anterior). Período novo começa oculto: deixe assim enquanto o horário estiver em montagem. O calendário em PDF (até 10 MB) fica guardado de forma privada e só quem tem login baixa.</p>
@@ -67,6 +68,10 @@ async function abaPeriodos() {
           <div class="campo"><label for="fim">Fim</label><input id="fim" type="date" required></div>
           <div class="campo"><label for="semletivas">Semanas letivas</label><input id="semletivas" type="number" min="1" max="30" value="20" required></div>
         </div>
+        <fieldset class="pos-cal"><legend>Calendário da pós-graduação <span class="muted">(só se for diferente da graduação)</span></legend>
+          <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <div class="campo"><label for="posini">Início da pós</label><input id="posini" type="date"></div>
+            <div class="campo"><label for="posfim">Fim da pós</label><input id="posfim" type="date"></div></div></fieldset>
         <span class="muted" style="font-size:12.5px">Semanas letivas: usadas no contador de aulas da graduação (aulas por semana × semanas). Não aceita período repetido nem início depois do fim. A disponibilidade dos professores começa vazia em cada período (ou use Turmas > Copiar de outro período). O período novo começa oculto para os professores.</span>
         <div id="msg" class="oculto" role="alert"></div>
         <button class="btn btn-p" type="submit">Criar período</button>
@@ -79,7 +84,8 @@ async function abaPeriodos() {
     try {
       if (!form.ini.value || !form.fim.value) throw new Error('Informe início e fim.');
       if (form.ini.value > form.fim.value) throw new Error('O início precisa ser antes do fim.');
-      await q(sb.from('periodos').insert({ ano: +form.ano.value, semestre: +form.sem.value, inicio: form.ini.value, fim: form.fim.value, semanas_letivas: +form.semletivas.value || 20 }));
+      const pos = datasPos(form.posini.value, form.posfim.value);
+      await q(sb.from('periodos').insert({ ano: +form.ano.value, semestre: +form.sem.value, inicio: form.ini.value, fim: form.fim.value, semanas_letivas: +form.semletivas.value || 20, ...pos }));
       avisar('Período criado.');
       abrir('periodos');
     } catch (e) { mostrarErro(form.querySelector('#msg'), e); }
@@ -114,15 +120,28 @@ async function abaPeriodos() {
         <div class="campo"><label for="e-ini">Início</label><input id="e-ini" type="date" value="${p.inicio}" required></div>
         <div class="campo"><label for="e-fim">Fim</label><input id="e-fim" type="date" value="${p.fim}" required></div>
         <div class="campo"><label for="e-sem">Semanas letivas</label><input id="e-sem" type="number" min="1" max="30" value="${p.semanas_letivas}" required></div></div>
-        <span class="muted" style="font-size:12.5px">Encontros de pós que ficarem fora das novas datas aparecem na Auditoria.</span>`,
+        <fieldset class="pos-cal"><legend>Calendário da pós-graduação <span class="muted">(em branco = igual à graduação)</span></legend>
+          <div class="linha-form" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <div class="campo"><label for="e-posini">Início da pós</label><input id="e-posini" type="date" value="${p.pos_inicio || ''}"></div>
+            <div class="campo"><label for="e-posfim">Fim da pós</label><input id="e-posfim" type="date" value="${p.pos_fim || ''}"></div></div></fieldset>
+        <span class="muted" style="font-size:12.5px">As datas da graduação não mudam nada na pós, e vice-versa. Encontros de pós que ficarem fora das datas da pós aparecem na Auditoria.</span>`,
       aoConfirmar: async (dlg) => {
         const ini = dlg.querySelector('#e-ini').value, fim = dlg.querySelector('#e-fim').value;
         if (ini > fim) throw new Error('O início precisa ser antes do fim.');
-        await q(sb.from('periodos').update({ inicio: ini, fim, semanas_letivas: +dlg.querySelector('#e-sem').value || 20 }).eq('id', p.id));
+        const pos = datasPos(dlg.querySelector('#e-posini').value, dlg.querySelector('#e-posfim').value);
+        await q(sb.from('periodos').update({ inicio: ini, fim, semanas_letivas: +dlg.querySelector('#e-sem').value || 20, ...pos }).eq('id', p.id));
         avisar('Período atualizado.'); abrir('periodos');
       },
     });
   }));
+}
+
+// início/fim da pós: os dois em branco (igual à graduação) ou os dois preenchidos
+function datasPos(ini, fim) {
+  if (!ini && !fim) return { pos_inicio: null, pos_fim: null };
+  if (!ini || !fim) throw new Error('Para a pós, informe início e fim (ou deixe os dois em branco).');
+  if (ini > fim) throw new Error('O início da pós precisa ser antes do fim da pós.');
+  return { pos_inicio: ini, pos_fim: fim };
 }
 
 // ================= Dias não letivos =================
@@ -240,7 +259,9 @@ async function abaFeriados() {
     try {
       const p = periodos.find((x) => x.id === periodoId);
       if (!form.data.value) throw new Error('Informe a data.');
-      if (form.data.value < p.inicio || form.data.value > p.fim) throw new Error(`A data precisa estar dentro do período ${periodoRotulo(p)}.`);
+      const de = [p.inicio, p.pos_inicio || p.inicio].sort()[0], ate = [p.fim, p.pos_fim || p.fim].sort()[1];
+      if (form.data.value < de || form.data.value > ate) throw new Error(`A data precisa estar dentro do período ${periodoRotulo(p)} (graduação ou pós).`);
+      if (form.repo.value && (form.data.value < p.inicio || form.data.value > p.fim)) throw new Error('Reposição no sábado só vale para dias dentro do calendário da graduação.');
       if (!form.motivo.value.trim()) throw new Error('Informe o motivo.');
       const repo = form.repo.value || null;
       if (repo && diaIso(parseData(form.data.value)) > 5) throw new Error('Reposição só vale para dia de segunda a sexta.');

@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611261200';
-import { rpc } from './supabase.js?v=202611261200';
-import { esc, isoData, segundaDaSemana, parseData, ddmm, duracao } from './util.js?v=202611261200';
-import { carregarAnalise } from './analise.js?v=202611261200';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, mostrarErro } from './pagina.js?v=202611261211';
+import { rpc } from './supabase.js?v=202611261211';
+import { esc, isoData, segundaDaSemana, parseData, ddmm, duracao } from './util.js?v=202611261211';
+import { carregarAnalise } from './analise.js?v=202611261211';
 
 const { perfil, main } = await iniciarPagina('inicio');
 

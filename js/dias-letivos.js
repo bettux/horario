@@ -1,6 +1,6 @@
 // Dias letivos do período (seg a sex), com os sábados de reposição no lugar dos dias não letivos
-import { rpc } from './supabase.js?v=202611261200';
-import { esc, DIAS, parseData, ddmm, ddmmaaaa } from './util.js?v=202611261200';
+import { rpc } from './supabase.js?v=202611261211';
+import { esc, DIAS, parseData, ddmm, ddmmaaaa } from './util.js?v=202611261211';
 
 export async function carregarDiasLetivos(periodoId) {
   return await rpc('dias_letivos', { p_periodo: periodoId });

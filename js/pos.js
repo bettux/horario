@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611261200';
-import { tons } from './cores.js?v=202611261200';
-import { sb, q, rpc } from './supabase.js?v=202611261200';
-import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, diaIso, duracao } from './util.js?v=202611261200';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, confirmar } from './pagina.js?v=202611261211';
+import { tons } from './cores.js?v=202611261211';
+import { sb, q, rpc } from './supabase.js?v=202611261211';
+import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, diaIso, duracao } from './util.js?v=202611261211';
 
 const { main } = await iniciarPagina('pos');
 
@@ -18,6 +18,7 @@ main.innerHTML = `
         <button type="button" class="sb" data-modo="semana">Semana</button>
         <button type="button" class="sb" data-modo="sabado">Sábado</button>
       </div></div>
+    <div class="campo" style="flex:0 1 auto"><span class="rotulo">Calendário da pós</span><span id="pos-cal" class="pos-cal-txt"></span></div>
   </section>
   <div id="msg" class="oculto" role="alert"></div>
   <div id="area"></div>`;
@@ -38,6 +39,8 @@ const profNome = (id) => profs.find((p) => p.id === id)?.nome || '?';
 const profCor = (id) => profs.find((p) => p.id === id)?.cor || '#8A8A93';
 
 let periodoId = preencherPeriodos($m('#per'), periodos);
+// calendário da pós (em branco no período = o mesmo da graduação)
+const posIni = () => periodo.pos_inicio || periodo.inicio, posFim = () => periodo.pos_fim || periodo.fim;
 let periodo = null, turma = null, modo = sessionStorage.getItem('pos-modo') || 'semana';
 let modulos = [], ofertas = [], encontros = [], feriados = [], ambientes = [];
 let gradDias = [], disp = [], encontrosPeriodo = [];
@@ -51,6 +54,7 @@ async function carregarTurmas() {
   const sel = $m('#turma');
   if (!periodoId) { sel.innerHTML = '<option>—</option>'; sel.disabled = true; $m('#area').innerHTML = '<p class="muted">Crie um período em Configurações acadêmicas.</p>'; return; }
   periodo = periodos.find((p) => p.id === periodoId);
+  $m('#pos-cal').innerHTML = `${ddmmaaaa(parseData(posIni()))} a ${ddmmaaaa(parseData(posFim()))}${periodo.pos_inicio ? '' : ' <span class="muted">(igual à graduação)</span>'}`;
   const ts = (await q(sb.from('turmas').select('*').eq('periodo_id', periodoId).eq('semestre', 0)))
     .map((t) => { const m = matrizes.find((x) => x.id === t.matriz_id); const c = cursos.find((x) => x.id === m.curso_id); return { ...t, rotulo: `${c.nome} · ${t.identificacao}`, curso: c }; })
     .filter((t) => t.curso.nivel === 'pos').sort((a, b) => a.rotulo.localeCompare(b.rotulo));
@@ -92,7 +96,7 @@ function minutosDe(compId, m) {
 
 // ---------- calendário ----------
 function semanasDoPeriodo() {
-  const ini = segundaDaSemana(parseData(periodo.inicio)), fim = parseData(periodo.fim);
+  const ini = segundaDaSemana(parseData(posIni())), fim = parseData(posFim());
   const out = []; for (let s = ini, n = 1; s <= fim; s = somaDias(s, 7), n++) out.push({ n, seg: s });
   return out;
 }
@@ -105,7 +109,7 @@ function desenhar() {
   const doModo = encontros.filter((e) => e.modo === modo);
   const celula = (iso, filtro) => {
     const dt = parseData(iso);
-    if (dt < parseData(periodo.inicio) || dt > parseData(periodo.fim)) return '<div class="pcel pcel-fora"></div>';
+    if (dt < parseData(posIni()) || dt > parseData(posFim())) return '<div class="pcel pcel-fora"></div>';
     if (ferMap[iso]) return `<div class="pcel pcel-fer"><b>Não letivo</b><span>${esc(ferMap[iso])}</span></div>`;
     const es = doModo.filter((e) => e.data === iso && filtro(e));
     if (!es.length) return '<div class="pcel"></div>';
@@ -160,7 +164,7 @@ function desenhar() {
 // ---------- geração de datas ----------
 function gerarDatas({ primeira, formato, alvoMin }) {
   const fer = new Set(feriados.map((f) => f.data));
-  const fim = parseData(periodo.fim);
+  const fim = parseData(posFim());
   const out = [];
   let total = 0;
   const pulados = [];
@@ -242,7 +246,7 @@ function abrirModulo(compId) {
         }).join('')}</div></fieldset>
       <div class="linha-form" style="grid-template-columns:${modo === 'semana' ? '1fr 1fr auto' : '1fr auto'};align-items:end">
         ${modo === 'semana' ? `<div class="campo"><label for="m-dia">Dia da semana</label><select id="m-dia">${[1, 2, 3, 4, 5].map((d) => `<option value="${d}"${d === estado.dia ? ' selected' : ''}>${DIAS[d]}</option>`).join('')}</select></div>` : ''}
-        <div class="campo"><label for="m-pri">1º encontro</label><input id="m-pri" type="date" value="${estado.primeira}" min="${periodo.inicio}" max="${periodo.fim}"></div>
+        <div class="campo"><label for="m-pri">1º encontro</label><input id="m-pri" type="date" value="${estado.primeira}" min="${posIni()}" max="${posFim()}"></div>
         <button class="btn" type="button" id="m-gerar">${lista.length ? 'Gerar de novo' : 'Gerar datas'}</button>
       </div>
       ${lista.length ? `<div style="border:1px solid var(--borda);border-radius:10px;max-height:220px;overflow:auto">
@@ -272,7 +276,7 @@ function abrirModulo(compId) {
       const diaAlvo = modo === 'semana' ? estado.dia : 6;
       if (!pri) {
         // primeira data do período nesse dia da semana
-        let d = parseData(periodo.inicio); while (diaIso(d) !== diaAlvo) d = somaDias(d, 1); pri = isoData(d);
+        let d = parseData(posIni()); while (diaIso(d) !== diaAlvo) d = somaDias(d, 1); pri = isoData(d);
       }
       if (diaIso(parseData(pri)) !== diaAlvo) { mostrarErro(box, new Error(`O 1º encontro precisa ser ${modo === 'semana' ? 'numa ' + DIAS[diaAlvo].toLowerCase() : 'num sábado'}.`)); return; }
       estado.primeira = pri;

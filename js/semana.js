@@ -1,5 +1,5 @@
 // Visão semanal de um professor (usada em Minhas aulas e na Agenda docente)
-import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, duracao } from './util.js?v=202611261200';
+import { esc, DIAS, parseData, isoData, somaDias, segundaDaSemana, ddmm, ddmmaaaa, duracao } from './util.js?v=202611261211';
 
 const num = (v) => Number(v ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
