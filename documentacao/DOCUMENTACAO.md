@@ -149,7 +149,7 @@ Toda gravação passa por estas funções do banco. Qualquer erro **impede a gra
 | Matéria obrigatória sem professor; matéria "sem professor" com professor; mais de 2 professores | `validar_turma` |
 | Subturma com duas aulas ao mesmo tempo; aula sem subturma | `validar_turma` |
 | Carga acima da matriz; PI ou Extensão com mais de 2 por semana | `validar_turma` |
-| Mesmo **ambiente** no mesmo dia e horário (graduação e pós) | `validar_ambientes` |
+| Mesmo **ambiente** no mesmo dia e horário (graduação e pós); numa aula com duas salas, cada sala é conferida | `validar_ambientes` |
 | Regras da pós (datas, módulos, formato) | `validar_turma_pos` |
 
 ### 3.8 Carga docente (igual à planilha da coordenação)
@@ -190,7 +190,7 @@ Total      = Ensino + atividades semanais          → limite: 40
   - arrastando um **professor** ou uma etiqueta da faixa **"Faltam"**;
   - **lançamento direto:** quando o professor tem uma só matéria pendente naquela subturma, a aula entra sem janela;
   - nos outros casos abre a janela de lançamento.
-- **Cada bloco mostra** a sigla da matéria, a sala (quando informada) e o professor. A sala é definida clicando no bloco (campo Ambiente); a opção "Usar esta sala nas outras aulas" aplica a mesma sala em todas as aulas daquela matéria com as mesmas subturmas na turma.
+- **Cada bloco mostra** a sigla da matéria, a(s) sala(s) (quando informadas) e o professor. **Matéria em duas salas:** no campo Ambiente, separe com + (ex.: "Lab 12 + Lab 14"); o bloco mostra as duas e o choque é conferido sala por sala. Na planilha sai "Lab 12 e Lab 14". A sala é definida clicando no bloco (campo Ambiente); a opção "Usar esta sala nas outras aulas" aplica a mesma sala em todas as aulas daquela matéria com as mesmas subturmas na turma.
 - **Aba "Professores das matérias"** (ao lado da aba Grade): todas as turmas do curso no período, com matéria × subturma para escolher o professor (★ domina e ☆ conhece aparecem primeiro) e as aulas juntas por semana. Cada turma tem o seu botão Salvar; ao salvar, o "Faltam" da Grade se atualiza. Grava no mesmo lugar que Gestão de turmas → Professores.
 - **Ajustar:**
   - mover arrastando o bloco;
@@ -286,6 +286,7 @@ Salvar sem mudança não gera registro.
 | `aulas` | id*, turma_id*, componente_id*, dia_semana* (1–6), inicio* (nº do horário), quantidade* (1–8), ambiente_id, atualizado_em* | Uma aula ocupa `quantidade` horários seguidos |
 | `aula_professores` | aula_id*, professor_id* | Até 2 |
 | `aula_subturmas` | aula_id*, subturma_id* | Mais de uma = aula conjunta |
+| `aula_ambientes` | aula_id*, ambiente_id*, ordem* | Salas da aula (uma ou mais). `aulas.ambiente_id` guarda só a 1ª, por compatibilidade |
 
 ### Pós-graduação
 
@@ -316,7 +317,7 @@ Salvar sem mudança não gera registro.
 
 | View | Para quê |
 |---|---|
-| `v_aulas_horario` | Aula com período, nome da matéria e horário real de início e fim (hi, hf) |
+| `v_aulas_horario` | Aula com período, nome da matéria, horário real de início e fim (hi, hf) e `ambientes` ("Lab 12 + Lab 14") |
 | `v_encontros` | Encontro de pós com turma, período, componente, professor e dia da semana |
 | `v_ambientes_uso` | Quantas aulas e encontros usam cada ambiente |
 | `v_dias_nao_letivos` | Dia não letivo com a contagem de encontros afetados e a reposição |
@@ -518,7 +519,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 ## 11. Operação e manutenção
 
 - **Publicar uma mudança no site:** rodar `./versao.sh` (troca o `?v=` de todos os arquivos), fazer commit e enviar para o ramo `main`. O GitHub Pages publica em 1 a 3 minutos.
-- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `33b_apelido_minhas_aulas`.
+- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `34b_separar_salas_combinadas`.
 - **Período novo:**
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;

@@ -1,9 +1,9 @@
-import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261243';
-import { sb, q, rpc } from './supabase.js?v=202611261243';
-import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261243';
-import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261243';
-import { carregarAnalise } from './analise.js?v=202611261243';
-import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261243';
+import { iniciarPagina, listarPeriodos, periodoRotulo, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261252';
+import { sb, q, rpc } from './supabase.js?v=202611261252';
+import { esc, parseData, ddmmaaaa, DIAS, diaIso, mostrarAlerta } from './util.js?v=202611261252';
+import { enviarCalendario, abrirCalendario, removerCalendario } from './calendario.js?v=202611261252';
+import { carregarAnalise } from './analise.js?v=202611261252';
+import { carregarDiasLetivos, contarPorDia, abrirDiasLetivos } from './dias-letivos.js?v=202611261252';
 
 const { main } = await iniciarPagina('configuracoes');
 
@@ -370,7 +370,7 @@ async function abaHorarios() {
 async function abaAmbientes() {
   const amb = await q(sb.from('v_ambientes_uso').select('*').order('nome'));
   area.innerHTML = `
-    <div class="alerta alerta-aviso">Ambientes são criados quando você digita o nome numa aula. Aqui você renomeia ou junta ambientes duplicados (ex.: "Lab 3" e "Lab. 03").</div>
+    <div class="alerta alerta-aviso">Ambientes são criados quando você digita o nome numa aula. Aqui você renomeia ou junta ambientes duplicados (ex.: "Lab 3" e "Lab. 03"). Matéria em duas salas não precisa de um ambiente combinado: na aula, informe "Lab 12 + Lab 14". Ambiente sem uso pode ser excluído.</div>
     <section class="card tabela-box" style="margin-top:16px"><table>
       <thead><tr><th>Ambiente</th><th style="text-align:right">Aulas de graduação</th><th style="text-align:right">Encontros de pós</th><th></th></tr></thead>
       <tbody>${amb.length ? amb.map((a) => `<tr><td>${esc(a.nome)}</td><td class="num" style="text-align:right">${a.aulas}</td><td class="num" style="text-align:right">${a.encontros}</td>

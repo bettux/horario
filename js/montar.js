@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611261243';
-import { sb, q, rpc } from './supabase.js?v=202611261243';
-import { esc, DIAS } from './util.js?v=202611261243';
-import { tons } from './cores.js?v=202611261243';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611261252';
+import { sb, q, rpc } from './supabase.js?v=202611261252';
+import { esc, DIAS } from './util.js?v=202611261252';
+import { tons } from './cores.js?v=202611261252';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -151,7 +151,7 @@ async function carregar() {
   const [ts, cs, au, carga] = await Promise.all([
     mats.length ? q(sb.from('turmas').select('id, matriz_id, semestre, identificacao, subturmas(id, nome)').eq('periodo_id', periodoId).gt('semestre', 0).in('matriz_id', mats)) : [],
     mats.length ? q(sb.from('componentes').select('id, matriz_id, semestre, nome, sigla, carga, modalidade, regra, professor, ordem').in('matriz_id', mats).eq('ativo', true).order('ordem')) : [],
-    q(sb.from('v_aulas_horario').select('id, turma_id, componente_id, dia_semana, inicio, quantidade, ambiente_id').eq('periodo_id', periodoId)),
+    q(sb.from('v_aulas_horario').select('id, turma_id, componente_id, dia_semana, inicio, quantidade, ambiente_id, ambientes').eq('periodo_id', periodoId)),
     rpc('carga_todos', { p_periodo: periodoId }),
   ]);
   const [ds, encs] = await Promise.all([
@@ -219,9 +219,9 @@ function blocoHtml(a, t, extra = '') {
   const tn = tons(prof(a.professores[0])?.cor);
   const nomes = a.professores.map(primeiro).join(' + ') || 'sem professor';
   const subsNomes = t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+');
-  const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambiente_id ? ' · ' + (ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}`;
+  const titulo = `${c?.nome || '?'} · ${subsNomes} · ${a.professores.map(pnome).join(' + ') || 'sem professor'}${a.ambientes ? ' · ' + a.ambientes : ''}`;
   return `<button type="button" class="mh-bloco${a.prop ? ' mh-prop' : ''}" draggable="true" data-aula="${a.id}" data-profs="${a.professores.join(' ')}" title="${esc(titulo)} ${a.prop ? ' · PROPOSTA, ainda não gravada' : ''} (arraste para mover)" style="${extra}background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}">
-    <span class="mh-sig">${esc(sigla(c))}${a.ambiente_id ? `<span class="mh-amb">${esc(ambientes.find((x) => x.id === a.ambiente_id)?.nome || '')}</span>` : ''}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
+    <span class="mh-sig">${esc(sigla(c))}${a.ambientes ? `<span class="mh-amb">${esc(a.ambientes)}</span>` : ''}</span><span class="mh-sub" style="color:${tn.suave}">${esc(nomes)}</span></button>`;
 }
 
 function turmaHtml(t) {
@@ -364,11 +364,11 @@ async function lancarDireto(pos, profId) {
   const i = L.findIndex((h) => h.numero === pos.slot);
   const livres = i < 0 ? 1 : L.length - i;
   const qtd = Math.max(1, Math.min(Math.max(...subsAlvo.map((s) => falta(t, c, s))), livres));
-  const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
+  const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambientes);
   try {
     const id = await rpc('gravar_aula', {
       p_aula: null, p_turma: t.id, p_componente: c.id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: qtd,
-      p_subturmas: subIds, p_professores: [profId], p_ambiente: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null,
+      p_subturmas: subIds, p_professores: [profId], p_ambiente: amb ? amb.ambientes || null : null,
     });
     registrar(`lançar ${c.nome}`, () => rpc('remover_aula', { p_aula: id }));
     $m('#msg').classList.add('oculto');
@@ -392,7 +392,7 @@ async function moverAula(id, pos) {
   try {
     await rpc('gravar_aula', {
       p_aula: a.id, p_turma: t.id, p_componente: a.componente_id, p_dia: pos.dia, p_inicio: pos.slot, p_quantidade: a.quantidade,
-      p_subturmas: subs, p_professores: a.professores, p_ambiente: ambientes.find((x) => x.id === a.ambiente_id)?.nome || null,
+      p_subturmas: subs, p_professores: a.professores, p_ambiente: a.ambientes || null,
     });
     $m('#msg').classList.add('oculto');
     registrar(`mover ${c?.nome || 'aula'}`, () => gravarSnap(antes, a.id));
@@ -404,7 +404,7 @@ async function moverAula(id, pos) {
 // ---------- desfazer ----------
 function snapAula(a) {
   return { turma: a.turma_id, comp: a.componente_id, dia: a.dia_semana, inicio: a.inicio, qtd: a.quantidade,
-    subs: [...a.subturmas], profs: [...a.professores], amb: ambientes.find((x) => x.id === a.ambiente_id)?.nome || null };
+    subs: [...a.subturmas], profs: [...a.professores], amb: a.ambientes || null };
 }
 function gravarSnap(x, id = null) {
   return rpc('gravar_aula', { p_aula: id, p_turma: x.turma, p_componente: x.comp, p_dia: x.dia, p_inicio: x.inicio, p_quantidade: x.qtd,
@@ -605,7 +605,7 @@ function menuAula(el) {
   dlg.className = 'dialogo mh-menu';
   dlg.innerHTML = `<div class="dialogo-form">
       <h2>${esc(c?.nome || 'Aula')}</h2>
-      <p class="muted" style="margin:0;line-height:1.5">${esc(DIAS[a.dia_semana])}, ${hm(h?.inicio)} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}${subs ? ' · ' + esc(subs) : ''}<br>${esc(a.professores.map(pnome).join(' + ') || 'sem professor')}${a.ambiente_id ? ' · ' + esc(ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}${ehProp ? '<br><strong>Proposta, ainda não gravada</strong>' : ''}</p>
+      <p class="muted" style="margin:0;line-height:1.5">${esc(DIAS[a.dia_semana])}, ${hm(h?.inicio)} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}${subs ? ' · ' + esc(subs) : ''}<br>${esc(a.professores.map(pnome).join(' + ') || 'sem professor')}${a.ambientes ? ' · ' + esc(a.ambientes) : ''}${ehProp ? '<br><strong>Proposta, ainda não gravada</strong>' : ''}</p>
       <div class="mh-menu-acoes">
         <button type="button" class="btn btn-p" data-m="mover">Mover para outro horário</button>
         ${ehProp ? '' : '<button type="button" class="btn" data-m="editar">Editar (professor, sala, quantidade)</button>'}
@@ -711,10 +711,10 @@ function gerarProposta() {
       for (const g of grupos) {
         if (!g.p && !semProf && c.professor === 'obrigatorio') { naoCoube.push(`${nomeT(t)} · ${c.nome}: sem professor definido na lista Matéria → Professor.`); continue; }
         if (!g.p && ehPI(c)) { naoCoube.push(`${nomeT(t)} · ${c.nome}: escolha os professores arrastando (cada aula pode ter um professor diferente).`); continue; }
-        const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambiente_id);
+        const amb = aulas.find((a) => a.turma_id === t.id && a.componente_id === c.id && a.ambientes);
         dem.push({ t, c, subs: g.subs, profs: g.p && !semProf ? [g.p, g.p2].filter(Boolean) : [], qtd: g.f, conj: g.conj,
           dias: c.modalidade === 'ead_sincrona' || ehExtensao(c) ? [6, 1, 2, 3, 4, 5] : [1, 2, 3, 4, 5],
-          amb: amb ? ambientes.find((x) => x.id === amb.ambiente_id)?.nome || null : null });
+          amb: amb ? amb.ambientes || null : null });
       }
     }
   }
@@ -761,7 +761,7 @@ function gerarProposta() {
       if (!pos) break;
       n++;
       const item = { id: `p-${++seq}`, prop: true, turma_id: dm.t.id, componente_id: dm.c.id, dia_semana: pos.d, inicio: pos.inicio, quantidade: n,
-        subturmas: dm.subs, professores: dm.profs, ambiente_id: null, amb: dm.amb };
+        subturmas: dm.subs, professores: dm.profs, ambiente_id: null, ambientes: dm.amb, amb: dm.amb };
       nova.push(item); ocupadas.push(item); usados.add(pos.d); resta -= n;
       for (const p of dm.profs) extra.set(p, (extra.get(p) || 0) + n);
     }
@@ -871,9 +871,9 @@ function dialogoAula(alvoPos, origem, aula = null) {
     const f = Math.max(...subs.filter((s) => subsSel.includes(s.id)).map((s) => falta(t, c, s)), 0);
     return Math.max(1, Math.min(f || 1, maxSlots(alvoPos.dia, alvoPos.slot)));
   };
-  const ambPadrao = aula ? (ambientes.find((x) => x.id === aula.ambiente_id)?.nome || '') : (() => {
-    const outra = aulas.find((a) => a.turma_id === t.id && a.componente_id === compId && a.ambiente_id);
-    return outra ? ambientes.find((x) => x.id === outra.ambiente_id)?.nome || '' : '';
+  const ambPadrao = aula ? (aula.ambientes || '') : (() => {
+    const outra = aulas.find((a) => a.turma_id === t.id && a.componente_id === compId && a.ambientes);
+    return outra ? outra.ambientes || '' : '';
   })();
   const todas = subs.length > 1 && subsSel.length === subs.length;
   const profOps = (sel, vazio) => `<option value="">${vazio}</option>` + profsTodos.filter((p) => p.ativo || p.id === sel).map((p) => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.nome)}</option>`).join('');
@@ -893,7 +893,8 @@ function dialogoAula(alvoPos, origem, aula = null) {
     <fieldset class="campo" style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600;margin-bottom:6px">Para quem</legend>
       <div style="display:flex;flex-wrap:wrap;gap:14px">${subs.map((s) => `<label class="check"><input type="radio" name="a-sub" value="${s.id}"${!todas && subsSel.length === 1 && subsSel[0] === s.id ? ' checked' : ''}> ${esc(s.nome)}</label>`).join('')}
       ${subs.length > 1 ? `<label class="check"><input type="radio" name="a-sub" value="todas"${todas ? ' checked' : ''}> Turma inteira (${subs.map((s) => esc(s.nome)).join('+')})</label>` : ''}</div></fieldset>
-    <div class="campo"><label for="a-amb">Ambiente</label><input id="a-amb" list="a-ambs" value="${esc(ambPadrao)}" placeholder="Ex.: Lab 07"><datalist id="a-ambs">${ambientes.map((x) => `<option value="${esc(x.nome)}">`).join('')}</datalist></div>
+    <div class="campo"><label for="a-amb">Ambiente</label><input id="a-amb" list="a-ambs" value="${esc(ambPadrao)}" placeholder="Ex.: Lab 07  ·  duas salas: Lab 12 + Lab 14"><datalist id="a-ambs">${ambientes.map((x) => `<option value="${esc(x.nome)}">`).join('')}</datalist>
+      <span class="muted" style="font-size:12px">Matéria em duas salas: separe com + (ex.: Lab 12 + Lab 14). O sistema confere o choque de cada sala.</span></div>
     <label class="check" id="a-todas-box"><input type="checkbox" id="a-todas"> <span id="a-todas-txt">Usar esta sala nas outras aulas desta matéria</span></label>
     <label class="check oculto" id="a-lista-box"><input type="checkbox" id="a-lista" checked> <span id="a-lista-txt"></span></label>
     ${aula ? '<div style="border-top:1px solid var(--linha);padding-top:12px"><button type="button" class="btn btn-p btn-perigo" id="a-remover">Remover esta aula</button></div>' : ''}`;
@@ -920,7 +921,7 @@ function dialogoAula(alvoPos, origem, aula = null) {
       const nomeC = comps.find((x) => x.id === comp)?.nome || 'aula';
       // mesma sala nas outras aulas da matéria (mesmas subturmas) nesta turma
       const sala = d.querySelector('#a-amb').value.trim() || null;
-      const irmas = d.querySelector('#a-todas').checked ? outrasDaMateria(comp, subIds, aula?.id || id).filter((x) => (ambientes.find((y) => y.id === x.ambiente_id)?.nome || null) !== sala) : [];
+      const irmas = d.querySelector('#a-todas').checked ? outrasDaMateria(comp, subIds, aula?.id || id).filter((x) => (x.ambientes || null) !== sala) : [];
       const antesIrmas = irmas.map((x) => [x.id, snapAula(x)]);
       const falhas = [];
       for (const x of irmas) {

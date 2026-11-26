@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611261243';
-import { sb, q } from './supabase.js?v=202611261243';
-import { esc } from './util.js?v=202611261243';
-import { gerarPlanilha } from './planilha-gerar.js?v=202611261243';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611261252';
+import { sb, q } from './supabase.js?v=202611261252';
+import { esc } from './util.js?v=202611261252';
+import { gerarPlanilha } from './planilha-gerar.js?v=202611261252';
 
 // Exportação para Excel no modelo da coordenação (uso confidencial, só administrador).
 // O modelo fica guardado no banco (tabela com acesso restrito ao ADM), nunca no repositório.
@@ -131,7 +131,7 @@ async function dadosDoPeriodo(periodo) {
     turmas: turmas.map((t) => ({ ...t, subturmas: t.subturmas || [] })),
     aulas: aulas.map((a) => ({
       turma_id: a.turma_id, componente_id: a.componente_id, dia_semana: a.dia_semana, inicio: a.inicio, quantidade: a.quantidade,
-      ambiente: amb.get(a.ambiente_id) || null,
+      ambiente: (a.ambientes || amb.get(a.ambiente_id) || '').replace(/ \+ /g, ' e ') || null,
       professores: ap.filter((x) => x.aula_id === a.id).map((x) => x.professor_id),
       subturmas: as.filter((x) => x.aula_id === a.id).map((x) => x.subturma_id),
     })),

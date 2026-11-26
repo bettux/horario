@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611261243';
+import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611261252';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_CHAVE_PUBLICA, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: 'horario-auth' },

@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261243';
-import { sb, q } from './supabase.js?v=202611261243';
-import { esc, DIAS, parseData, ddmmaaaa } from './util.js?v=202611261243';
+import { iniciarPagina, listarPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261252';
+import { sb, q } from './supabase.js?v=202611261252';
+import { esc, DIAS, parseData, ddmmaaaa } from './util.js?v=202611261252';
 
 // Histórico de alterações (somente ADM): quem mudou o quê e quando
 const { main } = await iniciarPagina('historico');

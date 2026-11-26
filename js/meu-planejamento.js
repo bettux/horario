@@ -1,8 +1,8 @@
-import { exigirSessao } from './auth.js?v=202611261243';
-import { montarLayout } from './layout.js?v=202611261243';
-import { rpc } from './supabase.js?v=202611261243';
-import { esc, DIAS, parseData, ddmmaaaa, mostrarAlerta } from './util.js?v=202611261243';
-import { avisar, mostrarErro } from './pagina.js?v=202611261243';
+import { exigirSessao } from './auth.js?v=202611261252';
+import { montarLayout } from './layout.js?v=202611261252';
+import { rpc } from './supabase.js?v=202611261252';
+import { esc, DIAS, parseData, ddmmaaaa, mostrarAlerta } from './util.js?v=202611261252';
+import { avisar, mostrarErro } from './pagina.js?v=202611261252';
 
 // Meu planejamento (professor): disponibilidade do período e matérias que domina
 const perfil = await exigirSessao();

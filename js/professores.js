@@ -1,8 +1,8 @@
-import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611261243';
-import { sb, q, rpc } from './supabase.js?v=202611261243';
-import { contas } from './auth.js?v=202611261243';
-import { esc, mostrarAlerta } from './util.js?v=202611261243';
-import { CORES_PROFESSORES, CORES_PLANILHA, proximaCor } from './cores.js?v=202611261243';
+import { iniciarPagina, avisar, mostrarErro, abrirDialogo } from './pagina.js?v=202611261252';
+import { sb, q, rpc } from './supabase.js?v=202611261252';
+import { contas } from './auth.js?v=202611261252';
+import { esc, mostrarAlerta } from './util.js?v=202611261252';
+import { CORES_PROFESSORES, CORES_PLANILHA, proximaCor } from './cores.js?v=202611261252';
 
 const { perfil, main } = await iniciarPagina('professores');
 

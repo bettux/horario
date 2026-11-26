@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261243';
-import { sb, q, rpc } from './supabase.js?v=202611261243';
-import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611261243';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, mostrarErro } from './pagina.js?v=202611261252';
+import { sb, q, rpc } from './supabase.js?v=202611261252';
+import { esc, DIAS, parseData, ddmmaaaa, duracao } from './util.js?v=202611261252';
 
 // Relatórios de aulas por professor e por turma, prontos para imprimir ou salvar em PDF (A4 paisagem)
 const { main } = await iniciarPagina('relatorios');
@@ -60,7 +60,7 @@ async function carregarBase() {
       rotulo: pos ? `${c.sigla} · ${t.identificacao}` : `${c.sigla} · ${t.semestre}º sem. · ${t.identificacao}` }];
   }));
   const listaAulas = aulas.map((a) => ({
-    ...a, turma: mTurma.get(a.turma_id), comp: mComp.get(a.componente_id), ambiente: mAmb.get(a.ambiente_id) || '',
+    ...a, turma: mTurma.get(a.turma_id), comp: mComp.get(a.componente_id), ambiente: a.ambientes || mAmb.get(a.ambiente_id) || '',
     profs: ap.filter((x) => x.aula_id === a.id).map((x) => mProf.get(x.professor_id)).filter(Boolean),
     subs: as.filter((x) => x.aula_id === a.id).map((x) => x.subturma_id),
   }));
