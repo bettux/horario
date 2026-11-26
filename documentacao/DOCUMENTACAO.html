@@ -119,6 +119,7 @@ Atualizada em 26/11/2026.</p>
 <ul>
 <li>Cada período tem ano, semestre (1 ou 2), início, fim e <strong>semanas letivas</strong>. O padrão é 20 semanas, e o número é usado no cálculo da carga e da quantidade de aulas por semana.</li>
 <li><strong>Visível para professores:</strong> o professor só enxerga os períodos marcados, e a trava também está no banco. Período novo começa <strong>oculto</strong>. O ADM vê todos.</li>
+<li><strong>Publicar com Auditoria:</strong> ao marcar "Visível para professores", o sistema roda a Auditoria. Com <strong>erros</strong>, não publica e mostra a lista. Só com <strong>avisos</strong> (turmas ou matérias incompletas), mostra a lista e deixa "Publicar mesmo assim" ou "Voltar e corrigir".</li>
 <li><strong>Calendário escolar em PDF:</strong> um arquivo por período, privado, que só usuários logados baixam.</li>
 </ul>
 <h3 id="32-horarios">3.2 Horários</h3>
@@ -157,6 +158,7 @@ Atualizada em 26/11/2026.</p>
 </ul>
 <h3 id="36-professores">3.6 Professores</h3>
 <ul>
+<li><strong>Nome no horário (apelido):</strong> opcional (ex.: "Canno"). Aparece nos blocos e no painel do Montar horário, nas etiquetas do "Faltam", no Planejamento da pós, no relatório por turma e em Minhas aulas. Em branco = primeiro nome. Cadastros, carga, coleta, histórico e a planilha oficial continuam com o nome completo. O sistema avisa se dois professores ficarem com o mesmo nome no horário.</li>
 <li>Cadastro com nome, NIF (único), cor, ativo e perfil. A cor pode ser uma das 10 cores da planilha da coordenação (padrão do Excel), uma das 36 da paleta (com sugestão automática de uma livre) ou qualquer outra, escolhida no seletor ou digitada como código #RRGGBB.</li>
 <li><strong>Disponibilidade por período:</strong> dias e faixas de horário. Dia desmarcado significa indisponível.</li>
 <li><strong>Matéria → Professor</strong> (<code>atribuicoes</code>): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.</li>
@@ -269,7 +271,8 @@ Total      = Ensino + atividades semanais          → limite: 40
 <li>arrastando um <strong>professor</strong> ou uma etiqueta da faixa <strong>"Faltam"</strong>;</li>
 <li><strong>lançamento direto:</strong> quando o professor tem uma só matéria pendente naquela subturma, a aula entra sem janela;</li>
 <li>nos outros casos abre a janela de lançamento.</li>
-<li><strong>Cada bloco mostra</strong> a sigla da matéria, a sala (quando informada) e o professor. A sala é definida clicando no bloco (campo Ambiente).</li>
+<li><strong>Cada bloco mostra</strong> a sigla da matéria, a sala (quando informada) e o professor. A sala é definida clicando no bloco (campo Ambiente); a opção "Usar esta sala nas outras aulas" aplica a mesma sala em todas as aulas daquela matéria com as mesmas subturmas na turma.</li>
+<li><strong>Aba "Professores das matérias"</strong> (ao lado da aba Grade): todas as turmas do curso no período, com matéria × subturma para escolher o professor (★ domina e ☆ conhece aparecem primeiro) e as aulas juntas por semana. Cada turma tem o seu botão Salvar; ao salvar, o "Faltam" da Grade se atualiza. Grava no mesmo lugar que Gestão de turmas → Professores.</li>
 <li><strong>Ajustar:</strong></li>
 <li>mover arrastando o bloco;</li>
 <li>2º professor: soltar um professor em cima da aula;</li>
@@ -402,7 +405,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <tbody>
 <tr>
 <td><code>professores</code></td>
-<td>id<em>, nome</em>, nif<em> (3–12 dígitos, único), cor</em> (#RRGGBB), ativo<em>, perfil</em> (<code>professor</code>, <code>adm</code>), auth_user_id</td>
+<td>id<em>, nome</em>, nif<em> (3–12 dígitos, único), cor</em> (#RRGGBB), ativo<em>, perfil</em> (<code>professor</code>, <code>adm</code>), auth_user_id, apelido (nome no horário)</td>
 <td>Gatilho <code>proteger_adms</code></td>
 </tr>
 <tr>
@@ -1162,7 +1165,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <h2 id="11-operacao-e-manutencao">11. Operação e manutenção</h2>
 <ul>
 <li><strong>Publicar uma mudança no site:</strong> rodar <code>./versao.sh</code> (troca o <code>?v=</code> de todos os arquivos), fazer commit e enviar para o ramo <code>main</code>. O GitHub Pages publica em 1 a 3 minutos.</li>
-<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>32_coleta_professores</code>.</li>
+<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>33b_apelido_minhas_aulas</code>.</li>
 <li><strong>Período novo:</strong>
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
