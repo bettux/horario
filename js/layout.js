@@ -1,6 +1,6 @@
-import { TITULO_SISTEMA } from './config.js?v=202611242012';
-import { sair } from './auth.js?v=202611242012';
-import { esc } from './util.js?v=202611242012';
+import { TITULO_SISTEMA } from './config.js?v=202611261200';
+import { sair } from './auth.js?v=202611261200';
+import { esc } from './util.js?v=202611261200';
 
 // Menu do administrador. "pronto: false" = tela ainda não entregue.
 const MENU_ADM = [
@@ -26,6 +26,7 @@ const MENU_ADM = [
   { tipo: 'link', id: 'relatorios', rotulo: 'Relatórios de aulas', href: 'relatorios.html' },
   { tipo: 'link', id: 'planilha', rotulo: 'Criar planilha', href: 'planilha.html' },
   { tipo: 'link', id: 'usuarios', rotulo: 'Usuários e acessos', href: 'usuarios.html' },
+  { tipo: 'link', id: 'backup', rotulo: 'Backup', href: 'backup.html' },
   { tipo: 'sep' },
   { tipo: 'link', id: 'minhas', rotulo: 'Minhas aulas', href: 'minhas-aulas.html', pronto: true },
   { tipo: 'sair' },
@@ -37,7 +38,7 @@ const MENU_PROF = [
 ];
 
 // Telas já entregues (as demais aparecem como "em breve")
-const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar']);
+const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar', 'backup']);
 
 // Telas largas: o menu começa recolhido (sanduíche) e abre por cima ao clicar
 const RECOLHIDAS = new Set(['montar']);

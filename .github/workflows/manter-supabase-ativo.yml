@@ -1,0 +1,27 @@
+# Mantém o banco (Supabase, plano gratuito) acordado: o projeto é pausado depois de ~7 dias sem uso.
+# Roda a cada 3 dias e chama uma função que não lê nenhum dado. Usa só a chave pública (a mesma do site).
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: '17 11 */3 * *'   # a cada 3 dias, 08:17 de Brasília
+  workflow_dispatch:           # permite rodar na mão pela aba Actions
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Chamar o banco
+        run: |
+          URL="https://dpuodpubzhhmjuvpkbbq.supabase.co/rest/v1/rpc/manter_ativo"
+          CHAVE="sb_publishable_bwyG_Uo8VZypWKrK9GR0UA_IACx58Qq"
+          for tentativa in 1 2 3; do
+            resposta=$(curl -sS -w '\n%{http_code}' -X POST "$URL" -H "apikey: $CHAVE" -H "Content-Type: application/json" -d '{}') || true
+            codigo=$(echo "$resposta" | tail -n1)
+            echo "Tentativa $tentativa: HTTP $codigo $(echo "$resposta" | head -n1)"
+            [ "$codigo" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "O banco não respondeu. Confira no painel do Supabase se o projeto foi pausado."
+          exit 1

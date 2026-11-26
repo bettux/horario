@@ -418,3 +418,29 @@ body.mh-arrastando-aula .mh-lixeira { display: block; }
 .cor-livre #cor-hex { width: 96px; height: 32px; border: 1px solid var(--borda); border-radius: 7px; padding: 0 8px; font: 13px ui-monospace, Consolas, monospace; text-transform: uppercase; }
 .cor-livre #cor-hex.invalido { border-color: var(--vermelho); }
 .cores button[style*="#FFFFFF"], .cores button[style*="#FFFF00"] { box-shadow: inset 0 0 0 1px #D4D4DA; }
+
+/* ===== Montar horário no toque (tablet e celular) ===== */
+.mh-toque-barra { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 80; width: min(560px, calc(100vw - 32px));
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--grafite, #1A1C20); color: #fff; box-shadow: 0 10px 30px rgba(20, 22, 26, 0.35); }
+.mh-toque-barra > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mh-toque-barra strong { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mh-toque-barra span { font-size: 12.5px; opacity: 0.85; }
+.mh-toque-barra .btn { flex: none; background: #fff; color: var(--texto); border-color: #fff; }
+.mh-toque-barra.oculto { display: none; }
+body.mh-escolhendo .mh-slot:not(.mh-bloq) { background: #EAF5EE; border-color: #9CCFAE; }
+body.mh-escolhendo { padding-bottom: 90px; }
+.mh-escolhido { outline: 3px solid var(--vermelho) !important; outline-offset: 1px; }
+.mh-menu { width: min(420px, calc(100vw - 32px)); }
+.mh-menu-acoes { display: flex; flex-direction: column; gap: 8px; }
+.mh-menu-acoes .btn { width: 100%; min-height: 46px; justify-content: center; }
+@media (pointer: coarse) {
+  .mh-grade { --mh-linha: 48px; }
+  .mh-chip { padding: 8px 12px; font-size: 13px; }
+  .mh-faltam { gap: 8px; }
+  .mh-prof { padding: 11px 10px; font-size: 14px; }
+  .mh-sig { font-size: 13px; }
+  .mh-sub { font-size: 12px; }
+  .mh-slot-sab span { font-size: 11.5px; }
+  .mh-painel { max-height: 300px; }
+}

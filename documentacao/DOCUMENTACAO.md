@@ -1,7 +1,7 @@
 # Sistema de alocação de aula Graduação e Pós-Graduação · Vila Mariana
 
 Documentação de regras de negócio, banco de dados, telas e funções.
-Atualizada em 22/11/2026.
+Atualizada em 26/11/2026.
 
 ---
 
@@ -188,7 +188,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 - **Desfazer:** botão e Ctrl+Z, até 30 ações da sessão.
 - **Destacar professor:** clique no nome no painel.
 - **Tempo real e presença** entre os coordenadores.
-- **Toque:** segurar e arrastar, no tablet e no celular.
+- **No tablet e no celular (toque):** não há arraste. Toca no professor ou na etiqueta do "Faltam" (fica contornada em vermelho e aparece uma barra embaixo dizendo o que está sendo colocado), rola a página à vontade e toca no horário. Horário impossível só mostra o motivo. Tocar numa aula abre um menu: Mover para outro horário, Editar, Remover. Professor escolhido + toque numa aula = 2º professor. Tocar de novo no escolhido, ou em Cancelar, desfaz a escolha. Em tela de toque os horários e etiquetas ficam maiores. No computador, o mouse continua arrastando como antes.
 
 ### 3.11 Preenchimento automático
 
@@ -365,6 +365,7 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 | `exclusao_professor(prof)` | Lista o que impede a exclusão e o que será apagado junto |
 | `excluir_professor(prof)` | Exclui o professor (só sem impedimentos) e devolve o login para a Edge Function apagar |
 | `juntar_ambientes(origem, destino)` | Une dois ambientes (nomes parecidos) |
+| `manter_ativo()` | Chamada leve (liberada sem login) usada só para o projeto não ser pausado |
 | `ambiente_id(nome)` | Acha ou cria o ambiente pelo nome |
 
 ### Validação
@@ -404,7 +405,7 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 
 ## 7. Telas
 
-**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Minhas aulas · Sair.
+**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.
 
 **Menu do professor:** Minhas aulas · Sair.
 
@@ -429,6 +430,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | Histórico de alterações (`historico.html`) | ADM | Quem mudou o quê e quando, com filtros | `v_historico` |
 | Relatórios de aulas (`relatorios.html`) | ADM | Por professor ou por turma; impressão e PDF em A4 paisagem | tabelas e views, `carga_todos` |
 | Criar planilha (`planilha.html`) | ADM | Envia o modelo e gera o Excel da coordenação | `modelo_planilha`, ExcelJS |
+| Backup (`backup.html`) | ADM | Baixa um arquivo JSON com todas as tabelas (histórico e modelo da planilha opcionais); não inclui logins nem os PDFs de calendário | todas as tabelas |
 | Usuários e acessos (`usuarios.html`) | ADM | Criar acesso, redefinir senha, bloquear e reativar, promover a ADM | `listar_acessos`, Edge `gerenciar-usuarios` |
 | **Minhas aulas** (`minhas-aulas.html`) | professor e ADM | Só o período: cards de carga, grade fixa, pós, sábados letivos, atividades, botões **Calendário escolar** e **Dias letivos** | `meus_periodos`, `minhas_aulas`, `dias_letivos`, Storage |
 
@@ -493,7 +495,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 ## 11. Operação e manutenção
 
 - **Publicar uma mudança no site:** rodar `./versao.sh` (troca o `?v=` de todos os arquivos), fazer commit e enviar para o ramo `main`. O GitHub Pages publica em 1 a 3 minutos.
-- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `29_excluir_professor`.
+- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `30_manter_ativo`.
 - **Período novo:**
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
@@ -503,4 +505,6 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
   6. Montar horário → **Preencher automaticamente** → ajustar → aceitar;
   7. marcar **Visível para professores** e enviar o calendário em PDF.
 - **Antes de liberar para os professores:** Auditoria sem erros.
+- **Backup dos dados:** tela Backup. Baixar antes de mudanças grandes e pelo menos uma vez por semana durante o planejamento. Os PDFs de calendário ficam no Storage e não entram no arquivo.
+- **Supabase acordado:** o plano gratuito pausa o projeto depois de ~7 dias sem uso. O GitHub Actions `Manter Supabase ativo` (`.github/workflows/manter-supabase-ativo.yml`) chama a cada 3 dias a função `manter_ativo()`, que não lê dados. Se falhar, o GitHub avisa por e-mail; dá para rodar na mão pela aba Actions.
 - **Backup do sistema anterior às grandes mudanças:** ramo `versao-1`.

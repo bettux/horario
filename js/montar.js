@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611242012';
-import { sb, q, rpc } from './supabase.js?v=202611242012';
-import { esc, DIAS } from './util.js?v=202611242012';
-import { tons } from './cores.js?v=202611242012';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611261200';
+import { sb, q, rpc } from './supabase.js?v=202611261200';
+import { esc, DIAS } from './util.js?v=202611261200';
+import { tons } from './cores.js?v=202611261200';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -10,7 +10,7 @@ const { perfil, main } = await iniciarPagina('montar');
 main.innerHTML = `
   <header class="cabecalho" style="margin-bottom:12px">
     <div><h1>Montar horário</h1>
-    <p class="sub">Arraste um professor (painel à direita) ou uma matéria da faixa "Faltam" até o horário da turma. Clique numa aula para editar ou remover.</p></div>
+    <p class="sub">Arraste um professor (painel à direita) ou uma matéria da faixa "Faltam" até o horário da turma. Clique numa aula para editar ou remover. No tablet: toque para escolher e toque no horário para colocar.</p></div>
     <div class="barra" style="padding:0;gap:10px">
       <div class="campo" style="width:120px"><label for="per">Período</label><select id="per"></select></div>
       <div class="campo" style="width:220px"><label for="curso">Curso</label><select id="curso"></select></div>
@@ -29,7 +29,7 @@ main.innerHTML = `
     <aside class="mh-painel card" aria-label="Professores">
       <input type="search" id="busca" placeholder="Buscar professor" aria-label="Buscar professor">
       <div id="profs" class="mh-profs"></div>
-      <p class="muted" style="margin:0;font-size:11.5px;line-height:1.45">Arraste o nome até o horário. Número = maior carga semanal do período (limite 40).</p>
+      <p class="muted" style="margin:0;font-size:11.5px;line-height:1.45">Arraste o nome até o horário (no tablet: toque no nome e depois no horário). Número = maior carga semanal do período (limite 40).</p>
     </aside>
   </div>`;
 
@@ -202,7 +202,7 @@ function turmaHtml(t) {
         title="${esc(ch.comp.nome)}${subsTxt} · ${ch.prof ? esc(pnome(ch.prof)) : 'sem professor definido'} · faltam ${ch.falta} por semana"
         style="${tn ? `background:${tn.fundo};border-color:${tn.borda};color:${tn.texto}` : ''}">${esc(sigla(ch.comp))}${esc(subsTxt)} · ${ch.prof ? esc(primeiro(ch.prof)) : ch.comp.professor === 'obrigatorio' ? '<em>sem professor</em>' : '<span class="muted">qualquer professor</span>'} · ${ch.falta}</span>`;
     }).join('') : '<span class="chip chip-ok">nada pendente</span>'}</div>
-    <div class="mh-grade" style="grid-template-columns:44px repeat(${5 * ns}, minmax(0, 1fr)) minmax(70px, 0.9fr);grid-template-rows:auto auto repeat(${HS.length}, 36px)">${g}</div>
+    <div class="mh-grade" style="grid-template-columns:44px repeat(${5 * ns}, minmax(0, 1fr)) minmax(70px, 0.9fr);grid-template-rows:auto auto repeat(${HS.length}, var(--mh-linha, 36px))">${g}</div>
   </section>`;
 }
 
@@ -230,6 +230,7 @@ function desenhar() {
   area.querySelectorAll('[data-chip], [data-aula]').forEach(ligarArraste);
   area.querySelectorAll('.mh-slot, .mh-bloco').forEach(ligarAlvo);
   aplicarDestaque();
+  if (typeof reaplicarEscolha === 'function') reaplicarEscolha();
   area.querySelectorAll('[data-limpar]').forEach((b) => b.addEventListener('click', async () => {
     const t = turmas.find((x) => x.id === b.dataset.limpar);
     const n = aulas.filter((a) => a.turma_id === t.id).length;
@@ -465,51 +466,115 @@ function ligarArraste(el) {
     comecar(origem);
   });
   el.addEventListener('dragend', () => { el.classList.remove('mh-arrastando'); if (arrastando) terminar(); });
-  // toque: segurar o dedo um instante e arrastar
-  el.addEventListener('pointerdown', (ev) => {
-    if (ev.pointerType !== 'touch') return;
-    const origem = origemDe(el), x0 = ev.clientX, y0 = ev.clientY;
-    let iniciado = false, fantasma = null, alvo = null;
-    const limpar = () => {
-      clearTimeout(timer);
-      window.removeEventListener('pointermove', mover);
-      window.removeEventListener('pointerup', fim);
-      window.removeEventListener('pointercancel', cancelar);
-      fantasma?.remove(); alvo?.classList.remove('mh-alvo');
-    };
-    const mover = (e) => {
-      if (!iniciado) { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) limpar(); return; }
-      fantasma.style.transform = `translate(${e.clientX + 8}px, ${e.clientY + 8}px)`;
-      const t = document.elementFromPoint(e.clientX, e.clientY)?.closest('.mh-slot, .mh-bloco, #lixeira');
-      if (t !== alvo) { alvo?.classList.remove('mh-alvo'); alvo = t && aceita(t, origem) ? t : null; alvo?.classList.add('mh-alvo'); }
-    };
-    const fim = () => {
-      const a = alvo;
-      limpar();
-      if (!iniciado) return;
-      semCliqueAte = Date.now() + 500;
-      terminar();
-      if (a) soltar(origem, a);
-    };
-    const cancelar = () => { limpar(); if (iniciado) terminar(); };
-    const timer = setTimeout(() => {
-      iniciado = true;
-      comecar(origem);
-      fantasma = el.cloneNode(true);
-      fantasma.className = `${el.className} mh-fantasma`;
-      fantasma.style.width = `${Math.min(el.offsetWidth, 180)}px`;
-      document.body.appendChild(fantasma);
-      fantasma.style.transform = `translate(${x0 + 8}px, ${y0 + 8}px)`;
-      navigator.vibrate?.(15);
-    }, 280);
-    window.addEventListener('pointermove', mover);
-    window.addEventListener('pointerup', fim);
-    window.addEventListener('pointercancel', cancelar);
-  });
 }
-// durante o arraste por toque a página não rola
-document.addEventListener('touchmove', (e) => { if (arrastando) e.preventDefault(); }, { passive: false });
 ligarAlvo($m('#lixeira'));
+
+// ---------- toque (tablet e celular): tocar para escolher, tocar para colocar ----------
+// No toque não há arraste: toca no professor, na matéria do "Faltam" ou na aula, rola à vontade e toca no horário.
+let ultimoToque = 0, escolhido = null;
+document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' || e.pointerType === 'pen') ultimoToque = Date.now(); }, true);
+const porToque = () => Date.now() - ultimoToque < 1200;
+const barra = document.createElement('div');
+barra.className = 'mh-toque-barra oculto'; barra.setAttribute('role', 'status');
+document.body.appendChild(barra);
+
+function descreverEscolha(o) {
+  if (o.tipo === 'prof') return { titulo: pnome(o.id), dica: 'Toque no horário da turma. Para pôr como 2º professor, toque numa aula.' };
+  if (o.tipo === 'chip') {
+    const c = comps.find((x) => x.id === o.comp);
+    return { titulo: `${sigla(c)}${o.prof ? ' · ' + primeiro(o.prof) : ''}`, dica: 'Toque no horário onde a aula começa.' };
+  }
+  const a = [...aulas, ...proposta].find((x) => x.id === o.id);
+  return { titulo: `Movendo ${sigla(comps.find((x) => x.id === a?.componente_id))}`, dica: 'Toque no novo horário.' };
+}
+function escolher(o) {
+  escolhido = o;
+  limparBloqueios();
+  marcarBloqueios(o);
+  document.body.classList.add('mh-escolhendo');
+  $m('#turmas').querySelectorAll('.mh-escolhido').forEach((el) => el.classList.remove('mh-escolhido'));
+  document.querySelectorAll('[data-prof], [data-chip], [data-aula]').forEach((el) => {
+    const x = origemDe(el);
+    if (x && x.tipo === o.tipo && (x.id ? x.id === o.id : el.dataset.chip === o.chipRaw)) el.classList.add('mh-escolhido');
+  });
+  const d = descreverEscolha(o);
+  barra.innerHTML = `<div><strong>${esc(d.titulo)}</strong><span>${esc(d.dica)}</span></div><button type="button" class="btn btn-s">Cancelar</button>`;
+  barra.querySelector('button').addEventListener('click', soltarEscolha);
+  barra.classList.remove('oculto');
+}
+function soltarEscolha() {
+  escolhido = null;
+  limparBloqueios();
+  document.body.classList.remove('mh-escolhendo');
+  document.querySelectorAll('.mh-escolhido').forEach((el) => el.classList.remove('mh-escolhido'));
+  barra.classList.add('oculto');
+}
+// depois de redesenhar (gravou, tempo real...), mantém a escolha se ela ainda existir
+function reaplicarEscolha() {
+  if (!escolhido) return;
+  if ((escolhido.tipo === 'aula' || escolhido.tipo === 'prop') && ![...aulas, ...proposta].some((x) => x.id === escolhido.id)) { soltarEscolha(); return; }
+  escolher(escolhido);
+}
+
+function menuAula(el) {
+  const id = el.dataset.aula, ehProp = id.startsWith('p-');
+  const a = [...aulas, ...proposta].find((x) => x.id === id);
+  if (!a) return;
+  const c = comps.find((x) => x.id === a.componente_id);
+  const t = turmas.find((x) => x.id === a.turma_id);
+  const subs = t ? t.subturmas.filter((s) => a.subturmas.includes(s.id)).map((s) => s.nome).join('+') : '';
+  const L = a.dia_semana === 6 ? HSAB : HS, h = L.find((x) => x.numero === a.inicio);
+  const dlg = document.createElement('dialog');
+  dlg.className = 'dialogo mh-menu';
+  dlg.innerHTML = `<div class="dialogo-form">
+      <h2>${esc(c?.nome || 'Aula')}</h2>
+      <p class="muted" style="margin:0;line-height:1.5">${esc(DIAS[a.dia_semana])}, ${hm(h?.inicio)} · ${a.quantidade} aula${a.quantidade > 1 ? 's' : ''}${subs ? ' · ' + esc(subs) : ''}<br>${esc(a.professores.map(pnome).join(' + ') || 'sem professor')}${a.ambiente_id ? ' · ' + esc(ambientes.find((x) => x.id === a.ambiente_id)?.nome || '') : ''}${ehProp ? '<br><strong>Proposta, ainda não gravada</strong>' : ''}</p>
+      <div class="mh-menu-acoes">
+        <button type="button" class="btn btn-p" data-m="mover">Mover para outro horário</button>
+        ${ehProp ? '' : '<button type="button" class="btn" data-m="editar">Editar (professor, sala, quantidade)</button>'}
+        <button type="button" class="btn btn-p btn-perigo" data-m="remover">${ehProp ? 'Tirar da proposta' : 'Remover aula'}</button>
+        <button type="button" class="btn" data-m="fechar">Fechar</button>
+      </div></div>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  dlg.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
+    const m = b.dataset.m;
+    dlg.close();
+    if (m === 'mover') escolher({ tipo: ehProp ? 'prop' : 'aula', id });
+    else if (m === 'editar') dialogoAula({ turma: a.turma_id, dia: a.dia_semana, slot: a.inicio }, null, a);
+    else if (m === 'remover') ehProp ? tirarDaProposta(id) : removerAula(id);
+  }));
+  dlg.showModal();
+}
+
+// intercepta os toques antes dos cliques normais (que continuam valendo para o mouse)
+document.addEventListener('click', (e) => {
+  if (!porToque() || document.querySelector('dialog[open]')) return;
+  const el = e.target.closest('#turmas [data-aula], #turmas [data-chip], #profs [data-prof], #turmas .mh-slot');
+  if (!el) return;
+  e.preventDefault(); e.stopPropagation();
+  const o = el.classList.contains('mh-slot') ? null : origemDe(el);
+  if (o && o.tipo === 'chip') o.chipRaw = el.dataset.chip;
+  // tocou de novo no que já estava escolhido: cancela
+  if (o && escolhido && o.tipo === escolhido.tipo && (o.id ? o.id === escolhido.id : o.chipRaw === escolhido.chipRaw)) { soltarEscolha(); return; }
+  if (escolhido) {
+    // professor escolhido + toque numa aula = 2º professor; aula escolhida + toque noutra aula = nada
+    if (el.classList.contains('mh-slot') || (el.dataset.aula && escolhido.tipo === 'prof')) {
+      if (el.classList.contains('mh-bloq')) { avisar(el.dataset.motivo || 'Horário indisponível.', 'aviso'); return; }
+      const alvo = el, origem = escolhido;
+      soltarEscolha();
+      soltar(origem, alvo);
+      return;
+    }
+  }
+  if (!o) return; // toque num horário vazio sem nada escolhido
+  if (o.tipo === 'aula' || o.tipo === 'prop') { menuAula(el); return; }
+  escolher(o);
+}, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && escolhido && !document.querySelector('dialog[open]')) soltarEscolha(); });
+
+
 
 // ---------- tempo real e presença ----------
 let canal = null, recarregarDepois = false, timerRT = null;

@@ -19,7 +19,7 @@ hr{border:0;border-top:1px solid var(--l)}
 </style></head><body><main>
 <h1 id="sistema-de-alocacao-de-aula-graduacao-e-pos-graduacao-vila-mariana">Sistema de alocação de aula Graduação e Pós-Graduação · Vila Mariana</h1>
 <p>Documentação de regras de negócio, banco de dados, telas e funções.
-Atualizada em 22/11/2026.</p>
+Atualizada em 26/11/2026.</p>
 <hr />
 <h2 id="sumario">Sumário</h2>
 <ol>
@@ -269,7 +269,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <li><strong>Desfazer:</strong> botão e Ctrl+Z, até 30 ações da sessão.</li>
 <li><strong>Destacar professor:</strong> clique no nome no painel.</li>
 <li><strong>Tempo real e presença</strong> entre os coordenadores.</li>
-<li><strong>Toque:</strong> segurar e arrastar, no tablet e no celular.</li>
+<li><strong>No tablet e no celular (toque):</strong> não há arraste. Toca no professor ou na etiqueta do "Faltam" (fica contornada em vermelho e aparece uma barra embaixo dizendo o que está sendo colocado), rola a página à vontade e toca no horário. Horário impossível só mostra o motivo. Tocar numa aula abre um menu: Mover para outro horário, Editar, Remover. Professor escolhido + toque numa aula = 2º professor. Tocar de novo no escolhido, ou em Cancelar, desfaz a escolha. Em tela de toque os horários e etiquetas ficam maiores. No computador, o mouse continua arrastando como antes.</li>
 </ul>
 <h3 id="311-preenchimento-automatico">3.11 Preenchimento automático</h3>
 <ol>
@@ -715,6 +715,10 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td>Une dois ambientes (nomes parecidos)</td>
 </tr>
 <tr>
+<td><code>manter_ativo()</code></td>
+<td>Chamada leve (liberada sem login) usada só para o projeto não ser pausado</td>
+</tr>
+<tr>
 <td><code>ambiente_id(nome)</code></td>
 <td>Acha ou cria o ambiente pelo nome</td>
 </tr>
@@ -827,7 +831,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 </table>
 <hr />
 <h2 id="7-telas">7. Telas</h2>
-<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Minhas aulas · Sair.</p>
+<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.</p>
 <p><strong>Menu do professor:</strong> Minhas aulas · Sair.</p>
 <p>Em telas largas e no celular, o menu vira <strong>sanduíche (☰)</strong>.</p>
 <table>
@@ -941,6 +945,12 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td>ADM</td>
 <td>Envia o modelo e gera o Excel da coordenação</td>
 <td><code>modelo_planilha</code>, ExcelJS</td>
+</tr>
+<tr>
+<td>Backup (<code>backup.html</code>)</td>
+<td>ADM</td>
+<td>Baixa um arquivo JSON com todas as tabelas (histórico e modelo da planilha opcionais); não inclui logins nem os PDFs de calendário</td>
+<td>todas as tabelas</td>
 </tr>
 <tr>
 <td>Usuários e acessos (<code>usuarios.html</code>)</td>
@@ -1094,7 +1104,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <h2 id="11-operacao-e-manutencao">11. Operação e manutenção</h2>
 <ul>
 <li><strong>Publicar uma mudança no site:</strong> rodar <code>./versao.sh</code> (troca o <code>?v=</code> de todos os arquivos), fazer commit e enviar para o ramo <code>main</code>. O GitHub Pages publica em 1 a 3 minutos.</li>
-<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>29_excluir_professor</code>.</li>
+<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>30_manter_ativo</code>.</li>
 <li><strong>Período novo:</strong>
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
@@ -1104,6 +1114,8 @@ Total      = Ensino + atividades semanais          → limite: 40
   6. Montar horário → <strong>Preencher automaticamente</strong> → ajustar → aceitar;
   7. marcar <strong>Visível para professores</strong> e enviar o calendário em PDF.</li>
 <li><strong>Antes de liberar para os professores:</strong> Auditoria sem erros.</li>
+<li><strong>Backup dos dados:</strong> tela Backup. Baixar antes de mudanças grandes e pelo menos uma vez por semana durante o planejamento. Os PDFs de calendário ficam no Storage e não entram no arquivo.</li>
+<li><strong>Supabase acordado:</strong> o plano gratuito pausa o projeto depois de ~7 dias sem uso. O GitHub Actions <code>Manter Supabase ativo</code> (<code>.github/workflows/manter-supabase-ativo.yml</code>) chama a cada 3 dias a função <code>manter_ativo()</code>, que não lê dados. Se falhar, o GitHub avisa por e-mail; dá para rodar na mão pela aba Actions.</li>
 <li><strong>Backup do sistema anterior às grandes mudanças:</strong> ramo <code>versao-1</code>.</li>
 </ul>
 </main></body></html>
