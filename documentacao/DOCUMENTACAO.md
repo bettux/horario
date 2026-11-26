@@ -86,6 +86,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 - **Pós, durante a semana:** turma de 10 semanas das 19:00 às 22:00 (3 h); turma de 8 semanas das 19:00 às 22:45 (3h45).
 - **Pós, sábado:** manhã das 08:00 às 12:00 e tarde das 13:00 às 17:00 (3h45 de aula + 15 min de intervalo cada), ou integral.
 - Os modos Semana e Sábado da pós são independentes.
+- **Calendário da pós:** cada período pode ter início e fim próprios da pós (Configurações → Períodos → Editar). Em branco, vale o da graduação. As datas da pós valem para o planejamento e a validação dos encontros; a carga semanal cobre as semanas da graduação e da pós (graduação, EAD assíncrona e atividades só contam nas semanas da graduação); a planilha ganha as colunas dos meses da pós, e as linhas da graduação só preenchem os meses dela. Dia não letivo pode estar em qualquer data da graduação ou da pós; reposição no sábado só para dias da graduação.
 
 ### 3.3 Turmas, subturmas e aulas conjuntas
 
@@ -119,6 +120,16 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 - **Matéria → Professor** (`atribuicoes`): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.
 - **Excluir professor:** botão no cadastro. Só exclui quem **não tem aulas nem módulos de pós no período ativo ou em períodos futuros**; quem tem aulas em períodos encerrados deve ser inativado, para preservar o histórico. A confirmação exige digitar o NIF. Junto são apagados a disponibilidade, as atividades, as indicações em Matéria → Professor e o login. Ninguém exclui o próprio cadastro nem o último ADM.
 - **Proteção dos ADMs:** ninguém pode se rebaixar ou se desativar, e o último ADM não pode ser removido nem rebaixado.
+
+### 3.6.1 Coleta dos professores (disponibilidade e matérias)
+
+- **Quem abre:** o ADM, em Professores → Coleta dos professores, escolhe o período, define o prazo e clica em **Abrir coleta**. Funciona mesmo com o período oculto para consulta.
+- **O professor** vê um aviso em Minhas aulas e preenche em **Meu planejamento**, em 3 passos:
+  1. **Disponibilidade** do período: um horário por dia, com os horários da graduação (pode copiar do semestre anterior). Não consegue tirar disponibilidade de um horário em que já tem aula.
+  2. **Matérias** de cada curso (graduação e pós): **Domino** (ministro sem preparação), **Conheço** (ministro com preparação) ou **Sem interesse** (padrão). Cada toque já fica salvo. As matérias são **permanentes**: no semestre seguinte ele só revisa.
+  3. **Enviar** para a coordenação. Pode reenviar até o prazo. Depois do prazo, só consulta.
+- **O ADM** acompanha quem enviou, vê por matéria quem domina e quem conhece (com alerta das matérias sem ninguém) e **pode alterar** as matérias de qualquer professor. A disponibilidade continua editável em Disponibilidade docente.
+- **Uso na montagem:** em Gestão de turmas → Professores (Matéria → Professor), a lista de cada matéria mostra primeiro quem domina (★) e depois quem conhece (☆).
 
 ### 3.7 Conflitos e validações
 
@@ -241,7 +252,7 @@ Salvar sem mudança não gera registro.
 | `cursos` | id*, nome*, sigla, nivel* (`graduacao`, `pos`), ativo* | |
 | `matrizes` | id*, curso_id*, nome*, vigente* | PPC do curso |
 | `componentes` | id*, matriz_id*, semestre* (0 = pós), ordem*, nome*, modalidade* (`presencial`, `ead_sincrona`, `ead_assincrona`, `pos`, `tcc`), carga, regra* (`normal`, `pi_extensao`), professor* (`obrigatorio`, `opcional`, `sem`), ativo*, sigla, aulas_conjuntas* | `aulas_conjuntas` ficou **sem uso** (substituída por `turma_conjuntas`). A sigla é preenchida por gatilho quando vem vazia. |
-| `periodos` | id*, ano*, semestre* (1 ou 2), inicio*, fim*, semanas_letivas* (1–30, padrão 20), visivel_professor*, calendario_em | |
+| `periodos` | id*, ano*, semestre* (1 ou 2), inicio*, fim*, semanas_letivas* (1–30, padrão 20), visivel_professor*, calendario_em, pos_inicio, pos_fim, coleta_aberta*, coleta_prazo | pos_inicio/pos_fim: calendário da pós (os dois ou nenhum) |
 | `turmas` | id*, periodo_id*, matriz_id*, semestre*, identificacao* | Código da turma |
 | `subturmas` | id*, turma_id*, nome* | T1, T2… |
 | `turma_conjuntas` | turma_id*, componente_id*, aulas* (1–10) | Aulas conjuntas por semana, por turma e semestre |
@@ -262,6 +273,8 @@ Salvar sem mudança não gera registro.
 | `disponibilidades` | professor_id*, periodo_id*, dia_semana* (1–6), inicio*, fim* | Dia sem registro = indisponível |
 | `atividades` | id*, professor_id*, periodo_id*, descricao*, quantidade* (> 0), frequencia* (`semanal`, `periodo`), observacao, tipo* (`estagio`, `extensao`, `ic_orientacao`, `coordenacao_curso`, `pesquisa_cnpq`, `distrito`, `outras`) | |
 | `atribuicoes` | subturma_id*, componente_id*, professor_id*, atualizado_em* | Matéria → Professor (chave subturma + componente) |
+| `competencias` | professor_id*, componente_id*, nivel* (`domino`, `conheco`), atualizado_em*, atualizado_por | Matérias que o professor domina (permanente). Sem linha = sem interesse |
+| `coleta_envios` | professor_id*, periodo_id*, enviado_em* | Quem enviou a coleta do período |
 
 ### Graduação
 
@@ -348,6 +361,11 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 | `dias_letivos(periodo)` | definer | Dias letivos com o tipo: normal, reposição ou compensação |
 | `calendario_liberado(nome)` | definer | Regra de leitura do PDF |
 | `listar_acessos()` | definer | ADM: situação de login de cada professor |
+| `minhas_coletas()` | definer | Períodos com coleta aberta para o professor logado |
+| `minha_coleta(periodo)` | definer | Tudo da tela Meu planejamento: horários, disponibilidade (atual e anterior), cursos, matérias e o que ele marcou |
+| `prof_salvar_disponibilidade(periodo, dias)` | definer | Professor grava a própria disponibilidade (coleta aberta e no prazo) |
+| `prof_salvar_competencia(componente, nivel)` | definer | Professor marca Domino / Conheço / Sem interesse |
+| `prof_enviar_coleta(periodo)` | definer | Professor confirma o envio |
 
 ### Gravação (todas exigem ADM e travam o período durante a gravação)
 
@@ -405,9 +423,9 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 
 ## 7. Telas
 
-**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.
+**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.
 
-**Menu do professor:** Minhas aulas · Sair.
+**Menu do professor:** Minhas aulas · Meu planejamento · Sair.
 
 Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 
@@ -423,6 +441,8 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | Disponibilidade (`disponibilidade.html`) | ADM | Dias e horários por período | `salvar_disponibilidade` |
 | Atividades complementares (`atividades.html`) | ADM | Atividades com tipo e frequência | `salvar_atividade` |
 | Agenda docente (`agenda.html`) | ADM | Semana de qualquer professor | `agenda_professor` |
+| Coleta dos professores (`coleta.html`) | ADM | Abre/fecha a coleta e o prazo, acompanha quem enviou, vê quem domina cada matéria e altera as matérias de um professor | `periodos`, `coleta_envios`, `disponibilidades`, `competencias` |
+| Meu planejamento (`meu-planejamento.html`) | professor e ADM | Disponibilidade do período, matérias que domina e envio | `minhas_coletas`, `minha_coleta`, `prof_*` |
 | Gestão de turmas (`turmas.html`) | ADM | Turmas e subturmas; **Professores** (Matéria → Professor e aulas conjuntas); **Copiar de outro período** | `salvar_atribuicoes`, `turma_conjuntas`, `copiar_periodo` |
 | Matrizes curriculares (`matrizes.html`) | ADM | Cursos, matrizes e componentes (sigla, modalidade, carga, regra, professor) | tabelas `cursos`, `matrizes` e `componentes` |
 | Configurações acadêmicas (`configuracoes.html`) | ADM | Períodos (semanas, visível, calendário em PDF), dias não letivos, reposição, sábados de compensação, conferência de dias letivos, horários, ambientes | tabelas, Storage, `dias_letivos`, `juntar_ambientes` |
@@ -495,7 +515,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 ## 11. Operação e manutenção
 
 - **Publicar uma mudança no site:** rodar `./versao.sh` (troca o `?v=` de todos os arquivos), fazer commit e enviar para o ramo `main`. O GitHub Pages publica em 1 a 3 minutos.
-- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `30_manter_ativo`.
+- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `32_coleta_professores`.
 - **Período novo:**
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;

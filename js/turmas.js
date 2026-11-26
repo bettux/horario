@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261211';
-import { sb, q, rpc } from './supabase.js?v=202611261211';
-import { esc } from './util.js?v=202611261211';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, abrirDialogo, confirmar, mostrarErro } from './pagina.js?v=202611261217';
+import { sb, q, rpc } from './supabase.js?v=202611261217';
+import { esc } from './util.js?v=202611261217';
 
 const { main } = await iniciarPagina('turmas');
 
@@ -152,11 +152,15 @@ async function dialogoProfessores(t) {
   const m = matrizes.find((x) => x.id === t.matriz_id);
   if (!subs.length) { avisar('Cadastre ao menos uma subturma (Editar) antes de definir os professores.', 'aviso'); return; }
   const ids = subs.map((s) => s.id);
-  const [atuais, aulas, conjs] = await Promise.all([
+  const [atuais, aulas, conjs, comp] = await Promise.all([
     q(sb.from('atribuicoes').select('subturma_id, componente_id, professor_id').in('subturma_id', ids)),
     q(sb.from('aulas').select('componente_id, aula_professores(professor_id), aula_subturmas(subturma_id)').eq('turma_id', t.id)),
     q(sb.from('turma_conjuntas').select('componente_id, aulas').eq('turma_id', t.id)),
+    lista.length ? q(sb.from('competencias').select('professor_id, componente_id, nivel').in('componente_id', lista.map((c) => c.id))).catch(() => []) : [],
   ]);
+  // o que cada professor marcou na coleta: quem domina vem primeiro na lista
+  const nivelDe = (pid, cid) => comp.find((x) => x.professor_id === pid && x.componente_id === cid)?.nivel || '';
+  const ORD = { domino: 0, conheco: 1, '': 2 };
   const conjDe = (cid) => conjs.find((x) => x.componente_id === cid)?.aulas || 0;
   const porSemana = (c) => (c.regra === 'pi_extensao' ? 2 : Math.ceil((Number(c.carga) || 0) / (periodos.find((p) => p.id === t.periodo_id)?.semanas_letivas || 20)));
   // valor gravado; se não houver, sugere o professor que já está na grade
@@ -166,16 +170,18 @@ async function dialogoProfessores(t) {
     const g = aulas.find((x) => x.componente_id === cid && x.aula_subturmas.some((y) => y.subturma_id === sid) && x.aula_professores.length);
     return { id: g?.aula_professores[0].professor_id || '', sugerido: !!g };
   };
-  const opcoes = (sel) => `<option value="">—</option>` + profs.filter((p) => p.ativo || p.id === sel)
-    .map((p) => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.nome)}${p.ativo ? '' : ' (inativo)'}</option>`).join('');
+  const opcoes = (sel, cid) => `<option value="">—</option>` + profs.filter((p) => p.ativo || p.id === sel)
+    .map((p) => ({ p, n: nivelDe(p.id, cid) })).sort((a, b) => ORD[a.n] - ORD[b.n] || a.p.nome.localeCompare(b.p.nome, 'pt-BR'))
+    .map(({ p, n }) => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${n === 'domino' ? '★ ' : n === 'conheco' ? '☆ ' : ''}${esc(p.nome)}${n === 'domino' ? ' · domina' : n === 'conheco' ? ' · conhece' : ''}${p.ativo ? '' : ' (inativo)'}</option>`).join('');
   let algumSugerido = false;
   const linhas = lista.map((c) => `<tr><td>${esc(c.nome)}${c.modalidade.startsWith('ead') ? ' <span class="chip chip-neu">EAD</span>' : ''}${c.professor === 'opcional' ? ' <span class="muted" style="font-size:12px">(opcional)</span>' : ''}</td>
     ${subs.map((s) => { const v = valor(s.id, c.id); if (v.sugerido) algumSugerido = true;
-      return `<td><select data-sub="${s.id}" data-comp="${c.id}" aria-label="${esc(c.nome)} ${esc(s.nome)}"${v.sugerido ? ' class="sugerido"' : ''}>${opcoes(v.id)}</select></td>`; }).join('')}
+      return `<td><select data-sub="${s.id}" data-comp="${c.id}" aria-label="${esc(c.nome)} ${esc(s.nome)}"${v.sugerido ? ' class="sugerido"' : ''}>${opcoes(v.id, c.id)}</select></td>`; }).join('')}
     ${subs.length > 1 ? `<td><button type="button" class="btn btn-s" data-igual="${c.id}" title="Usar o professor da ${esc(subs[0].nome)} em todas">= ${esc(subs[0].nome)}</button></td>
       <td>${c.modalidade === 'ead_assincrona' ? '<span class="muted">—</span>' : `<input type="number" min="0" max="${porSemana(c)}" value="${conjDe(c.id)}" data-conj="${c.id}" style="width:64px" aria-label="Aulas conjuntas por semana de ${esc(c.nome)}"> <span class="muted" style="font-size:12px">de ${porSemana(c)}</span>`}</td>` : ''}</tr>`).join('');
   const corpo = `
     <p class="muted" style="margin:0 0 4px;font-size:13px">${esc(rotuloMatriz(m))} · ${t.semestre}º semestre · ${esc(t.identificacao)}. Defina quem dá cada matéria em cada subturma${subs.length > 1 ? ` e quantas aulas por semana são da turma inteira (${subs.map((s) => esc(s.nome)).join('+')} juntas; 0 = separadas, o normal)` : ''}. Vale só para este semestre. Isso não cria aulas no horário; serve de base para montar o horário.</p>
+    ${comp.length ? '<p class="muted" style="margin:0 0 4px;font-size:12.5px">Na lista: ★ domina e ☆ conhece a matéria (marcado pelo professor na coleta). Esses aparecem primeiro.</p>' : ''}
     ${algumSugerido ? '<p style="margin:0 0 4px;font-size:12.5px;color:var(--aviso-chip)">Os campos com fundo azul foram sugeridos a partir das aulas que já estão no horário. Confira e salve.</p>' : ''}
     <div class="tabela-box" style="max-height:60vh;overflow:auto"><table style="min-width:${300 + subs.length * 200}px">
       <thead><tr><th>Matéria</th>${subs.map((s) => `<th style="min-width:190px">${esc(s.nome)}</th>`).join('')}${subs.length > 1 ? `<th></th><th title="Aulas por semana com ${subs.map((s) => esc(s.nome)).join(' e ')} juntas. 0 = separadas.">${subs.map((s) => esc(s.nome)).join('+')} juntas / semana</th>` : ''}</tr></thead>

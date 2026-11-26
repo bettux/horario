@@ -1,6 +1,6 @@
-import { TITULO_SISTEMA } from './config.js?v=202611261211';
-import { sair } from './auth.js?v=202611261211';
-import { esc } from './util.js?v=202611261211';
+import { TITULO_SISTEMA } from './config.js?v=202611261217';
+import { sair } from './auth.js?v=202611261217';
+import { esc } from './util.js?v=202611261217';
 
 // Menu do administrador. "pronto: false" = tela ainda não entregue.
 const MENU_ADM = [
@@ -15,6 +15,7 @@ const MENU_ADM = [
     { id: 'disponibilidade', rotulo: 'Disponibilidade docente', href: 'disponibilidade.html' },
     { id: 'atividades', rotulo: 'Atividades complementares', href: 'atividades.html' },
     { id: 'agenda', rotulo: 'Agenda docente', href: 'agenda.html' },
+    { id: 'coleta', rotulo: 'Coleta dos professores', href: 'coleta.html' },
   ] },
   { tipo: 'grupo', id: 'academico', rotulo: 'Gestão acadêmica', itens: [
     { id: 'turmas', rotulo: 'Gestão de turmas', href: 'turmas.html' },
@@ -29,16 +30,18 @@ const MENU_ADM = [
   { tipo: 'link', id: 'backup', rotulo: 'Backup', href: 'backup.html' },
   { tipo: 'sep' },
   { tipo: 'link', id: 'minhas', rotulo: 'Minhas aulas', href: 'minhas-aulas.html', pronto: true },
+  { tipo: 'link', id: 'planejamento-prof', rotulo: 'Meu planejamento', href: 'meu-planejamento.html', pronto: true },
   { tipo: 'sair' },
 ];
 const MENU_PROF = [
   { tipo: 'link', id: 'minhas', rotulo: 'Minhas aulas', href: 'minhas-aulas.html', pronto: true },
+  { tipo: 'link', id: 'planejamento-prof', rotulo: 'Meu planejamento', href: 'meu-planejamento.html', pronto: true },
   { tipo: 'sep' },
   { tipo: 'sair' },
 ];
 
 // Telas já entregues (as demais aparecem como "em breve")
-const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar', 'backup']);
+const PRONTAS = new Set(['inicio', 'minhas', 'configuracoes', 'matrizes', 'turmas', 'professores', 'usuarios', 'disponibilidade', 'atividades', 'pos', 'carga', 'agenda', 'auditoria', 'planilha', 'relatorios', 'historico', 'montar', 'backup', 'coleta', 'planejamento-prof']);
 
 // Telas largas: o menu começa recolhido (sanduíche) e abre por cima ao clicar
 const RECOLHIDAS = new Set(['montar']);

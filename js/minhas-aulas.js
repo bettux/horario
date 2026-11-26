@@ -1,9 +1,9 @@
-import { exigirSessao } from './auth.js?v=202611261211';
-import { montarLayout } from './layout.js?v=202611261211';
-import { rpc } from './supabase.js?v=202611261211';
-import { esc, DIAS, isoData, parseData, ddmm, ddmmaaaa, duracao, mostrarAlerta } from './util.js?v=202611261211';
-import { carregarDiasLetivos, abrirDiasLetivos } from './dias-letivos.js?v=202611261211';
-import { abrirCalendario } from './calendario.js?v=202611261211';
+import { exigirSessao } from './auth.js?v=202611261217';
+import { montarLayout } from './layout.js?v=202611261217';
+import { rpc } from './supabase.js?v=202611261217';
+import { esc, DIAS, isoData, parseData, ddmm, ddmmaaaa, duracao, mostrarAlerta } from './util.js?v=202611261217';
+import { carregarDiasLetivos, abrirDiasLetivos } from './dias-letivos.js?v=202611261217';
+import { abrirCalendario } from './calendario.js?v=202611261217';
 
 // Visão do professor: só o período (sem navegar por semana)
 const perfil = await exigirSessao();
@@ -18,12 +18,23 @@ main.innerHTML = `
     <div class="campo" style="width:150px"><label for="per">Período letivo</label><select id="per"></select></div>
   </header>
   <div id="msg" class="oculto" role="alert"></div>
+  <div id="aviso-coleta"></div>
   <div id="conteudo"><p class="carregando">Carregando…</p></div>`;
 
 const sel = main.querySelector('#per');
 const conteudo = main.querySelector('#conteudo');
 const num = (v) => Number(v ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 let periodos = [];
+
+// coleta aberta: chama o professor para preencher disponibilidade e matérias
+rpc('minhas_coletas').then((cs) => {
+  const c = (cs || []).find((x) => x.liberada);
+  if (!c) return;
+  const prazo = c.prazo ? ` até <strong>${ddmmaaaa(parseData(c.prazo))}</strong>` : '';
+  main.querySelector('#aviso-coleta').innerHTML = `<div class="alerta ${c.enviado_em ? 'alerta-ok' : 'alerta-aviso'} mp-aviso">
+    <span>${c.enviado_em ? `Você já enviou seu planejamento ${c.ano}/${c.semestre}. Pode revisar${prazo}.` : `A coordenação está montando o horário ${c.ano}/${c.semestre}. Informe sua disponibilidade e as matérias que domina${prazo}.`}</span>
+    <a class="btn ${c.enviado_em ? '' : 'btn-p'} btn-s" href="meu-planejamento.html">${c.enviado_em ? 'Revisar' : 'Preencher agora'}</a></div>`;
+}).catch(() => {});
 
 try { periodos = await rpc('meus_periodos'); }
 catch (e) { mostrarAlerta(main.querySelector('#msg'), 'erro', e.message); }

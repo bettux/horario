@@ -128,6 +128,7 @@ Atualizada em 26/11/2026.</p>
 <li><strong>Pós, durante a semana:</strong> turma de 10 semanas das 19:00 às 22:00 (3 h); turma de 8 semanas das 19:00 às 22:45 (3h45).</li>
 <li><strong>Pós, sábado:</strong> manhã das 08:00 às 12:00 e tarde das 13:00 às 17:00 (3h45 de aula + 15 min de intervalo cada), ou integral.</li>
 <li>Os modos Semana e Sábado da pós são independentes.</li>
+<li><strong>Calendário da pós:</strong> cada período pode ter início e fim próprios da pós (Configurações → Períodos → Editar). Em branco, vale o da graduação. As datas da pós valem para o planejamento e a validação dos encontros; a carga semanal cobre as semanas da graduação e da pós (graduação, EAD assíncrona e atividades só contam nas semanas da graduação); a planilha ganha as colunas dos meses da pós, e as linhas da graduação só preenchem os meses dela. Dia não letivo pode estar em qualquer data da graduação ou da pós; reposição no sábado só para dias da graduação.</li>
 </ul>
 <h3 id="33-turmas-subturmas-e-aulas-conjuntas">3.3 Turmas, subturmas e aulas conjuntas</h3>
 <ul>
@@ -161,6 +162,16 @@ Atualizada em 26/11/2026.</p>
 <li><strong>Matéria → Professor</strong> (<code>atribuicoes</code>): por subturma e por semestre. Alimenta a faixa "Faltam", o lançamento direto, o preenchimento automático e a carga da EAD assíncrona.</li>
 <li><strong>Excluir professor:</strong> botão no cadastro. Só exclui quem <strong>não tem aulas nem módulos de pós no período ativo ou em períodos futuros</strong>; quem tem aulas em períodos encerrados deve ser inativado, para preservar o histórico. A confirmação exige digitar o NIF. Junto são apagados a disponibilidade, as atividades, as indicações em Matéria → Professor e o login. Ninguém exclui o próprio cadastro nem o último ADM.</li>
 <li><strong>Proteção dos ADMs:</strong> ninguém pode se rebaixar ou se desativar, e o último ADM não pode ser removido nem rebaixado.</li>
+</ul>
+<h3 id="361-coleta-dos-professores-disponibilidade-e-materias">3.6.1 Coleta dos professores (disponibilidade e matérias)</h3>
+<ul>
+<li><strong>Quem abre:</strong> o ADM, em Professores → Coleta dos professores, escolhe o período, define o prazo e clica em <strong>Abrir coleta</strong>. Funciona mesmo com o período oculto para consulta.</li>
+<li><strong>O professor</strong> vê um aviso em Minhas aulas e preenche em <strong>Meu planejamento</strong>, em 3 passos:
+  1. <strong>Disponibilidade</strong> do período: um horário por dia, com os horários da graduação (pode copiar do semestre anterior). Não consegue tirar disponibilidade de um horário em que já tem aula.
+  2. <strong>Matérias</strong> de cada curso (graduação e pós): <strong>Domino</strong> (ministro sem preparação), <strong>Conheço</strong> (ministro com preparação) ou <strong>Sem interesse</strong> (padrão). Cada toque já fica salvo. As matérias são <strong>permanentes</strong>: no semestre seguinte ele só revisa.
+  3. <strong>Enviar</strong> para a coordenação. Pode reenviar até o prazo. Depois do prazo, só consulta.</li>
+<li><strong>O ADM</strong> acompanha quem enviou, vê por matéria quem domina e quem conhece (com alerta das matérias sem ninguém) e <strong>pode alterar</strong> as matérias de qualquer professor. A disponibilidade continua editável em Disponibilidade docente.</li>
+<li><strong>Uso na montagem:</strong> em Gestão de turmas → Professores (Matéria → Professor), a lista de cada matéria mostra primeiro quem domina (★) e depois quem conhece (☆).</li>
 </ul>
 <h3 id="37-conflitos-e-validacoes">3.7 Conflitos e validações</h3>
 <p>Toda gravação passa por estas funções do banco. Qualquer erro <strong>impede a gravação</strong> e mostra o motivo. Nas gravações por aula, só bloqueia problema <strong>novo</strong>: um problema que já existia antes não trava uma ação sem relação com ele.</p>
@@ -335,8 +346,8 @@ Total      = Ensino + atividades semanais          → limite: 40
 </tr>
 <tr>
 <td><code>periodos</code></td>
-<td>id<em>, ano</em>, semestre<em> (1 ou 2), inicio</em>, fim<em>, semanas_letivas</em> (1–30, padrão 20), visivel_professor*, calendario_em</td>
-<td></td>
+<td>id<em>, ano</em>, semestre<em> (1 ou 2), inicio</em>, fim<em>, semanas_letivas</em> (1–30, padrão 20), visivel_professor<em>, calendario_em, pos_inicio, pos_fim, coleta_aberta</em>, coleta_prazo</td>
+<td>pos_inicio/pos_fim: calendário da pós (os dois ou nenhum)</td>
 </tr>
 <tr>
 <td><code>turmas</code></td>
@@ -408,6 +419,16 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td><code>atribuicoes</code></td>
 <td>subturma_id<em>, componente_id</em>, professor_id<em>, atualizado_em</em></td>
 <td>Matéria → Professor (chave subturma + componente)</td>
+</tr>
+<tr>
+<td><code>competencias</code></td>
+<td>professor_id<em>, componente_id</em>, nivel<em> (<code>domino</code>, <code>conheco</code>), atualizado_em</em>, atualizado_por</td>
+<td>Matérias que o professor domina (permanente). Sem linha = sem interesse</td>
+</tr>
+<tr>
+<td><code>coleta_envios</code></td>
+<td>professor_id<em>, periodo_id</em>, enviado_em*</td>
+<td>Quem enviou a coleta do período</td>
 </tr>
 </tbody>
 </table>
@@ -655,6 +676,31 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td>definer</td>
 <td>ADM: situação de login de cada professor</td>
 </tr>
+<tr>
+<td><code>minhas_coletas()</code></td>
+<td>definer</td>
+<td>Períodos com coleta aberta para o professor logado</td>
+</tr>
+<tr>
+<td><code>minha_coleta(periodo)</code></td>
+<td>definer</td>
+<td>Tudo da tela Meu planejamento: horários, disponibilidade (atual e anterior), cursos, matérias e o que ele marcou</td>
+</tr>
+<tr>
+<td><code>prof_salvar_disponibilidade(periodo, dias)</code></td>
+<td>definer</td>
+<td>Professor grava a própria disponibilidade (coleta aberta e no prazo)</td>
+</tr>
+<tr>
+<td><code>prof_salvar_competencia(componente, nivel)</code></td>
+<td>definer</td>
+<td>Professor marca Domino / Conheço / Sem interesse</td>
+</tr>
+<tr>
+<td><code>prof_enviar_coleta(periodo)</code></td>
+<td>definer</td>
+<td>Professor confirma o envio</td>
+</tr>
 </tbody>
 </table>
 <h3 id="gravacao-todas-exigem-adm-e-travam-o-periodo-durante-a-gravacao">Gravação (todas exigem ADM e travam o período durante a gravação)</h3>
@@ -831,8 +877,8 @@ Total      = Ensino + atividades semanais          → limite: 40
 </table>
 <hr />
 <h2 id="7-telas">7. Telas</h2>
-<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.</p>
-<p><strong>Menu do professor:</strong> Minhas aulas · Sair.</p>
+<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.</p>
+<p><strong>Menu do professor:</strong> Minhas aulas · Meu planejamento · Sair.</p>
 <p>Em telas largas e no celular, o menu vira <strong>sanduíche (☰)</strong>.</p>
 <table>
 <thead>
@@ -903,6 +949,18 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td>ADM</td>
 <td>Semana de qualquer professor</td>
 <td><code>agenda_professor</code></td>
+</tr>
+<tr>
+<td>Coleta dos professores (<code>coleta.html</code>)</td>
+<td>ADM</td>
+<td>Abre/fecha a coleta e o prazo, acompanha quem enviou, vê quem domina cada matéria e altera as matérias de um professor</td>
+<td><code>periodos</code>, <code>coleta_envios</code>, <code>disponibilidades</code>, <code>competencias</code></td>
+</tr>
+<tr>
+<td>Meu planejamento (<code>meu-planejamento.html</code>)</td>
+<td>professor e ADM</td>
+<td>Disponibilidade do período, matérias que domina e envio</td>
+<td><code>minhas_coletas</code>, <code>minha_coleta</code>, <code>prof_*</code></td>
 </tr>
 <tr>
 <td>Gestão de turmas (<code>turmas.html</code>)</td>
@@ -1104,7 +1162,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <h2 id="11-operacao-e-manutencao">11. Operação e manutenção</h2>
 <ul>
 <li><strong>Publicar uma mudança no site:</strong> rodar <code>./versao.sh</code> (troca o <code>?v=</code> de todos os arquivos), fazer commit e enviar para o ramo <code>main</code>. O GitHub Pages publica em 1 a 3 minutos.</li>
-<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>30_manter_ativo</code>.</li>
+<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>32_coleta_professores</code>.</li>
 <li><strong>Período novo:</strong>
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
