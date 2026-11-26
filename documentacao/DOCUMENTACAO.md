@@ -519,7 +519,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 ## 11. Operação e manutenção
 
 - **Publicar uma mudança no site:** rodar `./versao.sh` (troca o `?v=` de todos os arquivos), fazer commit e enviar para o ramo `main`. O GitHub Pages publica em 1 a 3 minutos.
-- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `34b_separar_salas_combinadas`.
+- **Mudanças no banco:** feitas por *migrations* no Supabase. Lista no painel do projeto, de `01_tabelas` a `40_seguranca_funcoes_internas`.
 - **Período novo:**
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
@@ -531,4 +531,11 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 - **Antes de liberar para os professores:** Auditoria sem erros.
 - **Backup dos dados:** tela Backup. Baixar antes de mudanças grandes e pelo menos uma vez por semana durante o planejamento. Os PDFs de calendário ficam no Storage e não entram no arquivo.
 - **Supabase acordado:** o plano gratuito pausa o projeto depois de ~7 dias sem uso. O GitHub Actions `Manter Supabase ativo` (`.github/workflows/manter-supabase-ativo.yml`) chama a cada 3 dias a função `manter_ativo()`, que não lê dados. Se falhar, o GitHub avisa por e-mail; dá para rodar na mão pela aba Actions.
+- **Desempenho e segurança (revisão de 26/11/2026):**
+  - As regras de acesso usam `(select is_admin())`, avaliado uma vez por consulta, e não linha por linha.
+  - A carga semanal soma a parte fixa (graduação, EAD, atividades) uma vez só; só a pós é calculada semana a semana.
+  - A conferência de salas monta a lista de salas do período uma vez por chamada.
+  - Funções internas (`_snap_*`, `_registrar`, `salas_da_aula`, `periodo_liberado`, `calendario_liberado`) não podem ser chamadas sem login e só devolvem dados para ADM (ou para o próprio professor, na disponibilidade).
+  - Tempos medidos com o perfil ADM real: salvar aula ~0,2 s; carga de todos ~0,06 s; Auditoria do período ~0,5 s.
+  - Ao criar coluna nova em `professores`, liberar o `grant update (coluna)`: a tabela libera alteração coluna por coluna.
 - **Backup do sistema anterior às grandes mudanças:** ramo `versao-1`.

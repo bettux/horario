@@ -1170,7 +1170,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 <h2 id="11-operacao-e-manutencao">11. Operação e manutenção</h2>
 <ul>
 <li><strong>Publicar uma mudança no site:</strong> rodar <code>./versao.sh</code> (troca o <code>?v=</code> de todos os arquivos), fazer commit e enviar para o ramo <code>main</code>. O GitHub Pages publica em 1 a 3 minutos.</li>
-<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>34b_separar_salas_combinadas</code>.</li>
+<li><strong>Mudanças no banco:</strong> feitas por <em>migrations</em> no Supabase. Lista no painel do projeto, de <code>01_tabelas</code> a <code>40_seguranca_funcoes_internas</code>.</li>
 <li><strong>Período novo:</strong>
   1. criar em Configurações, já com as semanas letivas;
   2. cadastrar os dias não letivos, as reposições e as compensações;
@@ -1182,6 +1182,13 @@ Total      = Ensino + atividades semanais          → limite: 40
 <li><strong>Antes de liberar para os professores:</strong> Auditoria sem erros.</li>
 <li><strong>Backup dos dados:</strong> tela Backup. Baixar antes de mudanças grandes e pelo menos uma vez por semana durante o planejamento. Os PDFs de calendário ficam no Storage e não entram no arquivo.</li>
 <li><strong>Supabase acordado:</strong> o plano gratuito pausa o projeto depois de ~7 dias sem uso. O GitHub Actions <code>Manter Supabase ativo</code> (<code>.github/workflows/manter-supabase-ativo.yml</code>) chama a cada 3 dias a função <code>manter_ativo()</code>, que não lê dados. Se falhar, o GitHub avisa por e-mail; dá para rodar na mão pela aba Actions.</li>
+<li><strong>Desempenho e segurança (revisão de 26/11/2026):</strong></li>
+<li>As regras de acesso usam <code>(select is_admin())</code>, avaliado uma vez por consulta, e não linha por linha.</li>
+<li>A carga semanal soma a parte fixa (graduação, EAD, atividades) uma vez só; só a pós é calculada semana a semana.</li>
+<li>A conferência de salas monta a lista de salas do período uma vez por chamada.</li>
+<li>Funções internas (<code>_snap_*</code>, <code>_registrar</code>, <code>salas_da_aula</code>, <code>periodo_liberado</code>, <code>calendario_liberado</code>) não podem ser chamadas sem login e só devolvem dados para ADM (ou para o próprio professor, na disponibilidade).</li>
+<li>Tempos medidos com o perfil ADM real: salvar aula ~0,2 s; carga de todos ~0,06 s; Auditoria do período ~0,5 s.</li>
+<li>Ao criar coluna nova em <code>professores</code>, liberar o <code>grant update (coluna)</code>: a tabela libera alteração coluna por coluna.</li>
 <li><strong>Backup do sistema anterior às grandes mudanças:</strong> ramo <code>versao-1</code>.</li>
 </ul>
 </main></body></html>
