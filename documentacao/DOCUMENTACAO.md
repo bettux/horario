@@ -428,7 +428,7 @@ A publicação `supabase_realtime` inclui `aulas`, `aula_professores`, `aula_sub
 
 ## 7. Telas
 
-**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.
+**Menu do ADM:** Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente, Exportar horário (PDF)) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.
 
 **Menu do professor:** Minhas aulas · Meu planejamento · Sair.
 
@@ -453,6 +453,7 @@ Em telas largas e no celular, o menu vira **sanduíche (☰)**.
 | Configurações acadêmicas (`configuracoes.html`) | ADM | Períodos (semanas, visível, calendário em PDF), dias não letivos, reposição, sábados de compensação, conferência de dias letivos, horários, ambientes | tabelas, Storage, `dias_letivos`, `juntar_ambientes` |
 | Auditoria (`auditoria.html`) | ADM | Lista os problemas do período | `auditoria` |
 | Histórico de alterações (`historico.html`) | ADM | Quem mudou o quê e quando, com filtros | `v_historico` |
+| Exportar horário (`exportar.html`) | ADM | PDF do horário da graduação por curso e turmas escolhidas, no desenho da planilha: dias lado a lado com T1/T2; em cada horário, sigla, professor (nome no horário, com a cor dele) e sala; intervalos; sábado só nos horários usados. Uma turma por página ou turmas empilhadas (duas por folha), colorido ou preto e branco, com legenda das siglas | `v_aulas_horario`, jsPDF |
 | Relatórios de aulas (`relatorios.html`) | ADM | Por professor ou por turma; impressão e PDF em A4 paisagem | tabelas e views, `carga_todos` |
 | Criar planilha (`planilha.html`) | ADM | Envia o modelo e gera o Excel da coordenação | `modelo_planilha`, ExcelJS |
 | Backup (`backup.html`) | ADM | Baixa um arquivo JSON com todas as tabelas (histórico e modelo da planilha opcionais); não inclui logins nem os PDFs de calendário | todas as tabelas |

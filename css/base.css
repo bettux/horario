@@ -490,3 +490,9 @@ body.mh-escolhendo { padding-bottom: 90px; }
 .pm-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .pm-card select { width: 100%; height: 34px; border: 1px solid var(--borda); border-radius: 7px; padding: 0 6px; font: inherit; font-size: 13px; background: #fff; }
 .pm-card.pm-sujo { box-shadow: 0 0 0 2px #F5B301; }
+/* Exportar horário */
+.ex-form { max-width: 860px; }
+.ex-linha { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.ex-acoes-sel { display: flex; gap: 8px; margin: 2px 0 6px; }
+.ex-turmas { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px 14px; }
+.ex-turma { padding: 8px 10px; border: 1px solid var(--borda); border-radius: 8px; background: #FAFAFB; }

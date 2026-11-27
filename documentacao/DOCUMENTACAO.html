@@ -886,7 +886,7 @@ Total      = Ensino + atividades semanais          → limite: 40
 </table>
 <hr />
 <h2 id="7-telas">7. Telas</h2>
-<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.</p>
+<p><strong>Menu do ADM:</strong> Dashboard · Planejamento (Montar horário, Planejamento da pós, Carga docente, Exportar horário (PDF)) · Professores (Cadastro, Disponibilidade, Atividades complementares, Agenda docente, Coleta dos professores) · Gestão acadêmica (Gestão de turmas, Matrizes curriculares, Configurações acadêmicas) · Auditoria · Histórico de alterações · Relatórios de aulas · Criar planilha · Usuários e acessos · Backup · Minhas aulas · Sair.</p>
 <p><strong>Menu do professor:</strong> Minhas aulas · Meu planejamento · Sair.</p>
 <p>Em telas largas e no celular, o menu vira <strong>sanduíche (☰)</strong>.</p>
 <table>
@@ -1000,6 +1000,12 @@ Total      = Ensino + atividades semanais          → limite: 40
 <td>ADM</td>
 <td>Quem mudou o quê e quando, com filtros</td>
 <td><code>v_historico</code></td>
+</tr>
+<tr>
+<td>Exportar horário (<code>exportar.html</code>)</td>
+<td>ADM</td>
+<td>PDF do horário da graduação por curso e turmas escolhidas, no desenho da planilha: dias lado a lado com T1/T2; em cada horário, sigla, professor (nome no horário, com a cor dele) e sala; intervalos; sábado só nos horários usados. Uma turma por página ou turmas empilhadas (duas por folha), colorido ou preto e branco, com legenda das siglas</td>
+<td><code>v_aulas_horario</code>, jsPDF</td>
 </tr>
 <tr>
 <td>Relatórios de aulas (<code>relatorios.html</code>)</td>
