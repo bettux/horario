@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611271051';
-import { sb, q } from './supabase.js?v=202611271051';
-import { esc } from './util.js?v=202611271051';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, mostrarErro } from './pagina.js?v=202611271105';
+import { sb, q } from './supabase.js?v=202611271105';
+import { esc } from './util.js?v=202611271105';
 
 // Exportar horário (PDF): grade da graduação por curso e turma, no mesmo desenho da planilha de horário
 // (dias lado a lado com T1/T2; em cada horário: sigla, professor e sala).

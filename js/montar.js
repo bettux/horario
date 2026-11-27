@@ -1,7 +1,7 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611271051';
-import { sb, q, rpc } from './supabase.js?v=202611271051';
-import { esc, DIAS } from './util.js?v=202611271051';
-import { tons } from './cores.js?v=202611271051';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, avisar, mostrarErro, abrirDialogo, confirmar } from './pagina.js?v=202611271105';
+import { sb, q, rpc } from './supabase.js?v=202611271105';
+import { esc, DIAS } from './util.js?v=202611271105';
+import { tons } from './cores.js?v=202611271105';
 
 // Montar horário: todas as turmas do curso, arrastar professor ou matéria até o horário.
 // Cada ação grava na hora (gravar_aula / remover_aula) com as regras do banco.
@@ -181,7 +181,11 @@ async function carregar() {
 }
 
 // quanto falta por semana de uma matéria numa subturma
-function alvo(c) { return c.regra === 'pi_extensao' ? 2 : Math.ceil((Number(c.carga) || 0) / semanas); }
+// aulas por semana esperadas: Extensão = 1 (pode ter até 2 sem erro); Projeto Integrador = 2; demais = carga ÷ semanas
+function alvo(c) {
+  if (c.regra === 'pi_extensao') return /^\s*(atividades de )?extens/i.test(c?.nome || '') ? 1 : 2;
+  return Math.ceil((Number(c.carga) || 0) / semanas);
+}
 function lancadas(t, cId, sId) { return aulas.filter((a) => a.turma_id === t.id && a.componente_id === cId && a.subturmas.includes(sId)).reduce((n, a) => n + a.quantidade, 0); }
 const falta = (t, c, s) => Math.max(0, alvo(c) - lancadas(t, c.id, s.id));
 // aulas conjuntas (turma inteira) definidas para a turma no semestre e quanto ainda falta delas

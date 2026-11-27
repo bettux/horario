@@ -110,6 +110,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 
 ### 3.5 Projeto Integrador e Extensão (regra `pi_extensao`)
 
+- **Extensão Universitária: 1 aula por semana** (regra de 27/11/2026). No Montar horário, o "Faltam" e o preenchimento automático contam 1; ter 2 não é erro (o teto continua 2).
 - **Até 2 aulas por semana para cada componente, em cada subturma.** O limite é de cada um separadamente: PI e Extensão não se somam.
 - Não precisam completar a carga, porque ela é cumprida fora da grade.
 - **Projeto Integrador:** professor opcional e livre. Cada aula pode ter um professor diferente (normalmente 1 aula por professor).

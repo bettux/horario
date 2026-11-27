@@ -1,6 +1,6 @@
-import { iniciarPagina, avisar, mostrarErro } from './pagina.js?v=202611271051';
-import { sb, q } from './supabase.js?v=202611271051';
-import { esc } from './util.js?v=202611271051';
+import { iniciarPagina, avisar, mostrarErro } from './pagina.js?v=202611271105';
+import { sb, q } from './supabase.js?v=202611271105';
+import { esc } from './util.js?v=202611271105';
 
 // Backup (somente ADM): baixa um arquivo com todas as tabelas do sistema
 const { perfil, main } = await iniciarPagina('backup');

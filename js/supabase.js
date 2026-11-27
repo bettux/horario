@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611271051';
+import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611271105';
 
 // O login fica guardado só enquanto a aba/janela estiver aberta (sessionStorage):
 // fechou o navegador ou a aba, precisa entrar de novo.
