@@ -57,6 +57,7 @@ O ADM também é professor (tem NIF e pode ter aulas). O perfil é descoberto no
 - **Senha provisória:** NIF + `cfp109`, válida por **7 dias**. A troca é obrigatória no primeiro acesso, e "redefinir senha" volta para o mesmo padrão.
 - **Senha nova:** pelo menos 8 caracteres, com letras e números, e sem conter o NIF.
 - Não há cadastro aberto: só o ADM cria acessos.
+- **Sessão:** o login fica guardado só enquanto a aba estiver aberta (sessionStorage). Fechou a aba ou o navegador, precisa entrar de novo. Abrir o sistema numa aba nova também pede login.
 
 **Segurança no banco (RLS)**
 

@@ -1,6 +1,6 @@
-import { iniciarPagina, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611261252';
-import { sb, q } from './supabase.js?v=202611261252';
-import { esc } from './util.js?v=202611261252';
+import { iniciarPagina, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611271042';
+import { sb, q } from './supabase.js?v=202611271042';
+import { esc } from './util.js?v=202611271042';
 
 const { main } = await iniciarPagina('matrizes');
 

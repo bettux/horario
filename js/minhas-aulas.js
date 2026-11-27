@@ -1,9 +1,9 @@
-import { exigirSessao } from './auth.js?v=202611261252';
-import { montarLayout } from './layout.js?v=202611261252';
-import { rpc } from './supabase.js?v=202611261252';
-import { esc, DIAS, isoData, parseData, ddmm, ddmmaaaa, duracao, mostrarAlerta } from './util.js?v=202611261252';
-import { carregarDiasLetivos, abrirDiasLetivos } from './dias-letivos.js?v=202611261252';
-import { abrirCalendario } from './calendario.js?v=202611261252';
+import { exigirSessao } from './auth.js?v=202611271042';
+import { montarLayout } from './layout.js?v=202611271042';
+import { rpc } from './supabase.js?v=202611271042';
+import { esc, DIAS, isoData, parseData, ddmm, ddmmaaaa, duracao, mostrarAlerta } from './util.js?v=202611271042';
+import { carregarDiasLetivos, abrirDiasLetivos } from './dias-letivos.js?v=202611271042';
+import { abrirCalendario } from './calendario.js?v=202611271042';
 
 // Visão do professor: só o período (sem navegar por semana)
 const perfil = await exigirSessao();

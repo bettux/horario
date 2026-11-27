@@ -1,6 +1,6 @@
-import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611261252';
-import { sb, q } from './supabase.js?v=202611261252';
-import { esc, DIAS, parseData, ddmmaaaa } from './util.js?v=202611261252';
+import { iniciarPagina, listarPeriodos, preencherPeriodos, periodoRotulo, avisar, abrirDialogo, mostrarErro } from './pagina.js?v=202611271042';
+import { sb, q } from './supabase.js?v=202611271042';
+import { esc, DIAS, parseData, ddmmaaaa } from './util.js?v=202611271042';
 
 // Coleta dos professores (ADM): abre/fecha a coleta do período, acompanha quem enviou
 // e mostra quem domina cada matéria. O ADM também pode alterar o que o professor marcou.

@@ -1,8 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611261252';
+import { SUPABASE_URL, SUPABASE_CHAVE_PUBLICA } from './config.js?v=202611271042';
+
+// O login fica guardado só enquanto a aba/janela estiver aberta (sessionStorage):
+// fechou o navegador ou a aba, precisa entrar de novo.
+const guardaSessao = (() => {
+  try { sessionStorage.setItem('_t', '1'); sessionStorage.removeItem('_t'); return sessionStorage; } catch { return undefined; }
+})();
+// apaga o login que ficava salvo de forma permanente nas versões anteriores
+try { localStorage.removeItem('horario-auth'); } catch { /* ignora */ }
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_CHAVE_PUBLICA, {
-  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'horario-auth' },
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'horario-auth', storage: guardaSessao },
 });
 
 // Chama uma função do banco (RPC) e devolve os dados; lança erro com mensagens legíveis
